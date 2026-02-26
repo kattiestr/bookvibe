@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, X, Check, Loader } from 'lucide-react';
 import { saveCustomCover } from './BookCover';
 
@@ -12,6 +12,16 @@ interface Props {
 
 const accent = '#c4a882';
 const muted = '#5c5450';
+
+function getAdminToken(): string {
+  const existing = localStorage.getItem('adminToken');
+  if (existing && existing.trim()) return existing.trim();
+
+  const entered = window.prompt('Enter admin token (one-time)') || '';
+  const token = entered.trim();
+  if (token) localStorage.setItem('adminToken', token);
+  return token;
+}
 
 export default function CoverChanger({
   bookId,
@@ -27,9 +37,14 @@ export default function CoverChanger({
   const [selected, setSelected] = useState<string | null>(null);
   const [searchDone, setSearchDone] = useState(false);
 
+  // Save status
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string>('');
+
   // Auto-search on open
   useEffect(() => {
     searchCovers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const searchCovers = async () => {
@@ -54,7 +69,6 @@ export default function CoverChanger({
             const url = `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`;
             if (!allUrls.includes(url)) allUrls.push(url);
           }
-          // Also try ISBN covers (often better quality)
           if (doc.isbn && doc.isbn.length > 0) {
             const isbnUrl = `https://covers.openlibrary.org/b/isbn/${doc.isbn[0]}-L.jpg`;
             if (!allUrls.includes(isbnUrl)) allUrls.push(isbnUrl);
@@ -99,13 +113,52 @@ export default function CoverChanger({
     setSearchDone(true);
   };
 
-  const handleSave = () => {
-    const url = selected || customUrl;
-    if (url) {
-      saveCustomCover(bookId, url);
-      onChanged(url);
+  const handleSave = async () => {
+    const imageUrl = (selected || customUrl || '').trim();
+    if (!imageUrl) return;
+
+    setSaving(true);
+    setSaveMsg('');
+
+    // 1) Immediately update UI locally so you SEE the change
+    saveCustomCover(bookId, imageUrl);
+    onChanged(imageUrl);
+
+    // 2) Global admin save via API (Supabase storage + DB update)
+    const adminToken = getAdminToken();
+    if (!adminToken) {
+      setSaveMsg('No admin token. Saved only locally (this browser).');
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const resp = await fetch('/api/admin/set-default-cover', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-admin-token': adminToken,
+        },
+        body: JSON.stringify({ bookId, imageUrl }),
+      });
+
+      const text = await resp.text();
+      if (!resp.ok) {
+        setSaveMsg(`Save failed (${resp.status}): ${text}`);
+        setSaving(false);
+        return;
+      }
+
+      // If API returns JSON, we can show it:
+      setSaveMsg('Saved globally ✅ (Supabase)');
+      setSaving(false);
+    } catch (e: any) {
+      setSaveMsg(`Save failed: ${e?.message || String(e)}`);
+      setSaving(false);
     }
   };
+
+  const showSaveButton = Boolean(selected || customUrl);
 
   return (
     <div
@@ -333,7 +386,7 @@ export default function CoverChanger({
               boxSizing: 'border-box',
             }}
           />
-          {/* Preview */}
+
           {customUrl && (
             <div style={{ marginTop: '8px', textAlign: 'center' }}>
               <img
@@ -353,10 +406,28 @@ export default function CoverChanger({
           )}
         </div>
 
+        {/* Save status */}
+        {saveMsg && (
+          <div
+            style={{
+              marginBottom: '12px',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#e2ddd5',
+              fontSize: '12px',
+              lineHeight: 1.4,
+            }}
+          >
+            {saveMsg}
+          </div>
+        )}
+
         {/* Save button */}
-        {(selected || customUrl) && (
+        {showSaveButton && (
           <button
             onClick={handleSave}
+            disabled={saving}
             style={{
               width: '100%',
               background: accent,
@@ -366,15 +437,16 @@ export default function CoverChanger({
               color: '#141010',
               fontWeight: 700,
               fontSize: '14px',
-              cursor: 'pointer',
+              cursor: saving ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
+              opacity: saving ? 0.7 : 1,
             }}
           >
-            <Check size={16} />
-            Save Cover
+            {saving ? <Loader size={16} className="animate-spin" /> : <Check size={16} />}
+            {saving ? 'Saving…' : 'Save Cover'}
           </button>
         )}
       </div>
