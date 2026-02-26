@@ -4,7 +4,7 @@ import { useFavorites } from '../hooks/useFavorites';
 import { useLibrary } from '../hooks/LibraryContext';
 import { seriesDatabase } from '../data/series';
 import { ArrowLeft, Heart, BookOpen, Camera, ShoppingCart } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BookCover from '../components/BookCover';
 import CoverChanger from '../components/CoverChanger';
 import BookArtGallery from '../components/BookArtGallery';
@@ -19,8 +19,13 @@ export default function BookPage() {
   const { addToLibrary, isInLibrary, library } = useLibrary();
   const [showCoverChanger, setShowCoverChanger] = useState(false);
   const [coverKey, setCoverKey] = useState(0);
+  const [coverSrc, setCoverSrc] = useState<string>('');
 
   const book = booksDatabase.find((b) => b.id === id);
+  useEffect(() => {
+  if (!book) return;
+  setCoverSrc(book.cover || '');
+}, [book?.id]);
 
   if (!book) {
     return (
