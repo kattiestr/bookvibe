@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface Props {
   src: string;
   title: string;
   author?: string;
   isbn?: string;
+  bookId?: string; // IMPORTANT: use this for per-book saved overrides
   width?: number | string;
   height?: number | string;
   borderRadius?: string;
@@ -31,7 +32,10 @@ function getColor(title: string) {
   return COLORS[Math.abs(hash) % COLORS.length];
 }
 
-// Get user-saved cover from localStorage
+/**
+ * Local UI override ONLY.
+ * This is NOT the global saved cover. Global save happens via /api/admin/set-default-cover.
+ */
 function getSavedCover(bookId?: string): string | null {
   if (!bookId) return null;
   try {
@@ -162,7 +166,7 @@ export default function BookCover({
   src,
   title,
   author,
-  isbn,
+  bookId,
   width = '100%',
   height,
   borderRadius = '8px',
@@ -173,18 +177,23 @@ export default function BookCover({
   const [currentSrc, setCurrentSrc] = useState('');
 
   useEffect(() => {
-    // Check if user saved a custom cover
-    const saved = getSavedCover(isbn);
+    // First: local UI override (only to reflect immediate change)
+    const saved = getSavedCover(bookId);
     if (saved) {
       setCurrentSrc(saved);
       setFailed(false);
-    } else if (src && src.length > 5) {
+      return;
+    }
+
+    // Next: provided src (should ideally come from DB)
+    if (src && src.length > 5) {
       setCurrentSrc(src);
       setFailed(false);
-    } else {
-      setFailed(true);
+      return;
     }
-  }, [src, isbn]);
+
+    setFailed(true);
+  }, [src, bookId]);
 
   const handleError = () => {
     setFailed(true);
@@ -197,7 +206,7 @@ export default function BookCover({
       setFailed(true);
       return;
     }
-    // Square small images = "image not available" from Google Books
+    // Square small images = "image not available" (common from some sources)
     const ratio = img.naturalWidth / img.naturalHeight;
     if (ratio > 0.85 && ratio < 1.15 && img.naturalWidth <= 250) {
       setFailed(true);
