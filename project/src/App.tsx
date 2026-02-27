@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LibraryProvider } from './hooks/LibraryContext';
+import { CoverProvider } from './hooks/CoverContext';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -19,33 +20,35 @@ import NYTBookPage from './pages/NYTBookPage';
 export default function App() {
   return (
     <BrowserRouter>
-      <LibraryProvider>
-        <div
-          style={{
-            backgroundColor: '#141010',
-            minHeight: '100vh',
-            color: '#e2ddd5',
-          }}
-        >
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/book/:id" element={<BookPage />} />
-            <Route path="/favorites" element={<FavoritesPage />} />
-            <Route path="/cycle" element={<CyclePage />} />
-            <Route path="/library" element={<LibraryPage />} />
-            <Route path="/library/:id" element={<LibraryBookPage />} />
-            <Route path="/quiz" element={<QuizPage />} />
-            <Route path="/spin" element={<SpinPage />} />
-            <Route path="/if-you-liked" element={<IfYouLikedPage />} />
-            <Route path="/stats" element={<StatsPage />} />
-            <Route path="/author/:name" element={<AuthorPage />} />
-            <Route path="/tbr" element={<TBRPage />} />
-            <Route path="/trending/:isbn" element={<NYTBookPage />} />
-          </Routes>
-          <Navbar />
-        </div>
-      </LibraryProvider>
+      <CoverProvider>
+        <LibraryProvider>
+          <div
+            style={{
+              backgroundColor: '#141010',
+              minHeight: '100vh',
+              color: '#e2ddd5',
+            }}
+          >
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/book/:id" element={<BookPage />} />
+              <Route path="/favorites" element={<FavoritesPage />} />
+              <Route path="/cycle" element={<CyclePage />} />
+              <Route path="/library" element={<LibraryPage />} />
+              <Route path="/library/:id" element={<LibraryBookPage />} />
+              <Route path="/quiz" element={<QuizPage />} />
+              <Route path="/spin" element={<SpinPage />} />
+              <Route path="/if-you-liked" element={<IfYouLikedPage />} />
+              <Route path="/stats" element={<StatsPage />} />
+              <Route path="/author/:name" element={<AuthorPage />} />
+              <Route path="/tbr" element={<TBRPage />} />
+              <Route path="/trending/:isbn" element={<NYTBookPage />} />
+            </Routes>
+            <Navbar />
+          </div>
+        </LibraryProvider>
+      </CoverProvider>
     </BrowserRouter>
   );
 }

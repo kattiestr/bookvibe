@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Search, X, Check, Loader } from 'lucide-react';
 import { saveCustomCover } from './BookCover';
+import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
   bookId: string;
@@ -30,6 +31,7 @@ export default function CoverChanger({
   onChanged,
   onClose,
 }: Props) {
+  const { refreshCovers } = useCovers();
   const [results, setResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState(`${bookTitle} ${bookAuthor}`);
@@ -149,9 +151,9 @@ export default function CoverChanger({
         return;
       }
 
-      // If API returns JSON, we can show it:
       setSaveMsg('Saved globally ✅ (Supabase)');
       setSaving(false);
+      refreshCovers();
     } catch (e: any) {
       setSaveMsg(`Save failed: ${e?.message || String(e)}`);
       setSaving(false);

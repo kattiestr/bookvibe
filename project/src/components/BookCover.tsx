@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
   src: string;
   title: string;
   author?: string;
   isbn?: string;
-  bookId?: string; // IMPORTANT: use this for per-book saved overrides
+  bookId?: string;
   width?: number | string;
   height?: number | string;
   borderRadius?: string;
@@ -32,11 +33,16 @@ function getColor(title: string) {
   return COLORS[Math.abs(hash) % COLORS.length];
 }
 
-/**
- * Local UI override ONLY.
- * This is NOT the global saved cover. Global save happens via /api/admin/set-default-cover.
- */
-function getSavedCover(bookId?: string): string | null {
+export function saveCustomCover(bookId: string, url: string) {
+  try {
+    const saved = localStorage.getItem('customCovers');
+    const map = saved ? JSON.parse(saved) : {};
+    map[bookId] = url;
+    localStorage.setItem('customCovers', JSON.stringify(map));
+  } catch {}
+}
+
+function getLocalOverride(bookId?: string): string | null {
   if (!bookId) return null;
   try {
     const saved = localStorage.getItem('customCovers');
@@ -46,15 +52,6 @@ function getSavedCover(bookId?: string): string | null {
     }
   } catch {}
   return null;
-}
-
-export function saveCustomCover(bookId: string, url: string) {
-  try {
-    const saved = localStorage.getItem('customCovers');
-    const map = saved ? JSON.parse(saved) : {};
-    map[bookId] = url;
-    localStorage.setItem('customCovers', JSON.stringify(map));
-  } catch {}
 }
 
 function Placeholder({
@@ -166,6 +163,7 @@ export default function BookCover({
   src,
   title,
   author,
+  isbn,
   bookId,
   width = '100%',
   height,
@@ -173,27 +171,36 @@ export default function BookCover({
   style = {},
   onClick,
 }: Props) {
+  const { getCover } = useCovers();
   const [failed, setFailed] = useState(false);
   const [currentSrc, setCurrentSrc] = useState('');
 
+  const effectiveId = bookId || isbn;
+
   useEffect(() => {
-    // First: local UI override (only to reflect immediate change)
-    const saved = getSavedCover(bookId);
-    if (saved) {
-      setCurrentSrc(saved);
-      setFailed(false);
+    setFailed(false);
+
+    const localOverride = getLocalOverride(bookId);
+    if (localOverride) {
+      setCurrentSrc(localOverride);
       return;
     }
 
-    // Next: provided src (should ideally come from DB)
+    if (effectiveId) {
+      const contextUrl = getCover(effectiveId);
+      if (contextUrl && contextUrl.length > 5) {
+        setCurrentSrc(contextUrl);
+        return;
+      }
+    }
+
     if (src && src.length > 5) {
       setCurrentSrc(src);
-      setFailed(false);
       return;
     }
 
     setFailed(true);
-  }, [src, bookId]);
+  }, [src, bookId, isbn, effectiveId, getCover]);
 
   const handleError = () => {
     setFailed(true);
@@ -201,12 +208,10 @@ export default function BookCover({
 
   const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
-    // 1x1 pixel = no image
     if (img.naturalWidth <= 1 || img.naturalHeight <= 1) {
       setFailed(true);
       return;
     }
-    // Square small images = "image not available" (common from some sources)
     const ratio = img.naturalWidth / img.naturalHeight;
     if (ratio > 0.85 && ratio < 1.15 && img.naturalWidth <= 250) {
       setFailed(true);
