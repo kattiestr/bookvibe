@@ -16,7 +16,7 @@ const BooksContext = createContext<BooksContextValue>({
   refreshBooks: async () => {},
 });
 
-type CatalogBookRow = {
+type BookRow = {
   id: string;
   title: string;
   author: string;
@@ -27,14 +27,12 @@ type CatalogBookRow = {
   year: number | null;
   description: string | null;
   rating: number | null;
-  series_id: string | null;
   series_number: number | null;
   series: { name: string } | null;
-  catalog_book_tags: Array<{
-    catalog_tags: { slug: string; type: string } | null;
+  book_tags: Array<{
+    tags: { slug: string; type: string } | null;
   }>;
-  catalog_book_similar: Array<{ similar_book_id: string }>;
-  book_tags: Array<{ sort_order: number }>;
+  book_similar: Array<{ similar_book_id: string }>;
 };
 
 async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | null> {
@@ -51,18 +49,19 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       year,
       description,
       rating,
-      series_id,
       series_number,
       series ( name ),
-      catalog_book_tags ( catalog_tags ( slug, type ) ),
-      catalog_book_similar ( similar_book_id ),
-      book_tags ( sort_order )
+      book_tags ( tags ( slug, type ) ),
+      book_similar!book_similar_book_id_fkey ( similar_book_id )
     `)
-    .order('id');
+    .order('title');
 
-  if (error || !data) return null;
+  if (error || !data) {
+    console.error('Supabase fetch error:', error);
+    return null;
+  }
 
-  const rows = data as unknown as CatalogBookRow[];
+  const rows = data as unknown as BookRow[];
 
   const idToTitle: Record<string, string> = {};
   for (const row of rows) {
@@ -73,20 +72,20 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
     const tropes: string[] = [];
     const genres: string[] = [];
     const mood: string[] = [];
+    const vibes: string[] = [];
 
-    for (const bt of row.catalog_book_tags) {
-      if (!bt.catalog_tags) continue;
-      const { slug, type } = bt.catalog_tags;
+    for (const bt of row.book_tags) {
+      if (!bt.tags) continue;
+      const { slug, type } = bt.tags;
       if (type === 'trope') tropes.push(slug);
       else if (type === 'genre') genres.push(slug);
       else if (type === 'mood') mood.push(slug);
+      else if (type === 'vibe') vibes.push(slug);
     }
 
-    const similar = row.catalog_book_similar
+    const similar = row.book_similar
       .map((s) => idToTitle[s.similar_book_id])
       .filter(Boolean);
-
-    const vibes: string[] = [];
 
     const book: Book = {
       id: row.id,
