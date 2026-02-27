@@ -33,6 +33,14 @@ function hashColor(title: string): string {
   return COLORS[Math.abs(h) % COLORS.length];
 }
 
+function resolveUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (!supabaseUrl) return null;
+  return `${supabaseUrl}/storage/v1/object/public/covers/${path}`;
+}
+
 export function saveCustomCover(_bookId: string, _url: string) {}
 
 function Placeholder({
@@ -152,8 +160,8 @@ export default function BookCover({
     };
 
     const contextCover = effectiveId ? getCover(effectiveId) : null;
-    add(contextCover);
-    add(src);
+    add(resolveUrl(contextCover));
+    add(resolveUrl(src));
 
     const realIsbn = isbn && isbn.startsWith('97') ? isbn : extractIsbn(src || '');
     if (realIsbn) {
