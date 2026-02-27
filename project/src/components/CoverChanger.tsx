@@ -13,14 +13,8 @@ interface Props {
 const accent = '#c4a882';
 const muted = '#5c5450';
 
-function getAdminToken(): string {
-  const existing = localStorage.getItem('adminToken');
-  if (existing && existing.trim()) return existing.trim();
-  const entered = window.prompt('Enter admin token (one-time)') || '';
-  const token = entered.trim();
-  if (token) localStorage.setItem('adminToken', token);
-  return token;
-}
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export default function CoverChanger({
   bookId,
@@ -111,26 +105,19 @@ export default function CoverChanger({
     setSaving(true);
     setSaveMsg('');
 
-    const adminToken = getAdminToken();
-    if (!adminToken) {
-      setSaveMsg('No admin token — cover not saved.');
-      setSaving(false);
-      return;
-    }
-
     try {
-      const resp = await fetch('/api/admin/set-default-cover', {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/set-cover`, {
         method: 'POST',
         headers: {
-          'content-type': 'application/json',
-          'x-admin-token': adminToken,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({ bookId, imageUrl }),
       });
 
-      const text = await resp.text();
+      const data = await resp.json().catch(() => ({ error: 'Invalid response' }));
       if (!resp.ok) {
-        setSaveMsg(`Save failed (${resp.status}): ${text}`);
+        setSaveMsg(`Save failed: ${data.error || resp.status}`);
         setSaving(false);
         return;
       }

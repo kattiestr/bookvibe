@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
@@ -119,6 +119,11 @@ function Placeholder({
   );
 }
 
+function extractIsbn(url: string): string | null {
+  const m = url.match(/(97[89]\d{10})/);
+  return m ? m[1] : null;
+}
+
 export default function BookCover({
   src,
   title,
@@ -133,12 +138,42 @@ export default function BookCover({
 }: Props) {
   const { getCover } = useCovers();
   const effectiveId = bookId || isbn;
-  const [failed, setFailed] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [allFailed, setAllFailed] = useState(false);
 
-  const contextCover = effectiveId ? getCover(effectiveId) : null;
-  const displaySrc = contextCover || src || '';
+  const sources = useMemo(() => {
+    const urls: string[] = [];
+    const seen = new Set<string>();
+    const add = (u: string | null | undefined) => {
+      if (u && u.length > 5 && !seen.has(u)) {
+        seen.add(u);
+        urls.push(u);
+      }
+    };
 
-  if (failed || !displaySrc) {
+    const contextCover = effectiveId ? getCover(effectiveId) : null;
+    add(contextCover);
+    add(src);
+
+    const realIsbn = isbn && isbn.startsWith('97') ? isbn : extractIsbn(src || '');
+    if (realIsbn) {
+      add(`https://covers.openlibrary.org/b/isbn/${realIsbn}-L.jpg`);
+      add(`https://books.google.com/books/content?vid=isbn${realIsbn}&printsec=frontcover&img=1&zoom=1&source=gbs_api`);
+    }
+
+    return urls;
+  }, [effectiveId, src, isbn, getCover]);
+
+  const handleError = () => {
+    const next = sourceIndex + 1;
+    if (next < sources.length) {
+      setSourceIndex(next);
+    } else {
+      setAllFailed(true);
+    }
+  };
+
+  if (allFailed || sources.length === 0) {
     return (
       <Placeholder
         title={title}
@@ -154,9 +189,9 @@ export default function BookCover({
 
   return (
     <img
-      src={displaySrc}
+      src={sources[sourceIndex]}
       alt={title}
-      onError={() => setFailed(true)}
+      onError={handleError}
       onClick={onClick}
       style={{
         width,
