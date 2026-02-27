@@ -111,11 +111,25 @@ export default function CoverChanger({
         return;
       }
 
-      const { error } = await sb.client
+      const { data: { user } } = await sb.client.auth.getUser();
+      if (!user) throw new Error('Not logged in');
+
+      const isAdmin = user.email === 'kattiestrokach@gmail.com';
+
+      if (isAdmin) {
+       const { error } = await sb.client
         .from('books')
         .update({ cover_path: imageUrl })
         .eq('id', String(bookId));
       if (error) throw error;
+    } else {
+      const { error } = await sb.client
+        .from('user_library')
+        .update({ cover: imageUrl })
+        .eq('book_id', String(bookId))
+        .eq('user_id', user.id);
+      if (error) throw error;
+    }
 
       setSaveMsg('Saved!');
       setSaving(false);
