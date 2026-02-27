@@ -156,9 +156,14 @@ export default function BookCover({
   getCoverRef.current = getCover;
 
   function pick(currentSrc: string, currentId: string | undefined): string {
+    // 1) src всегда главный
+    if (currentSrc && currentSrc.length > 5) return currentSrc;
+    
+    // 2) только если src пустой — локальная подмена
     const local = getLocalOverride(bookId);
     if (local) return local;
-    if (currentSrc && currentSrc.length > 5) return currentSrc;
+
+    // 3) только если src пустой — контекст
     if (currentId) {
       const ctx = getCoverRef.current(currentId);
       if (ctx) return ctx;
