@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { ExternalLink, Plus, X, AlertTriangle, ImageIcon } from 'lucide-react';
 
 const accent = '#c4a07c';
 const muted = '#5c5450';
@@ -94,20 +93,6 @@ export default function BookArtGallery({
           textAlign: 'center',
         }}
       >
-        <div
-          style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '50%',
-            background: 'rgba(231,76,60,0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 12px',
-          }}
-        >
-          <AlertTriangle size={24} color="#e74c3c" />
-        </div>
 
         <h3
           style={{
