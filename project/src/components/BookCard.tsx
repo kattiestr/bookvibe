@@ -1,26 +1,27 @@
 import { useNavigate } from 'react-router-dom';
-import { Heart } from 'lucide-react';
 import type { Book } from '../data/books';
 import BookCover from './BookCover';
+import { useLibrary } from '../hooks/LibraryContext';
+import { Star } from 'lucide-react';
 
 interface Props {
   book: Book;
-  isFavorite: boolean;
-  onToggleFavorite: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  onClick?: () => void;
 }
 
 const muted = '#5c5450';
 
-export default function BookCard({
-  book,
-  isFavorite,
-  onToggleFavorite,
-}: Props) {
+export default function BookCard({ book, onClick }: Props) {
   const navigate = useNavigate();
+  const { getBook } = useLibrary();
+  const libraryBook = getBook(book.id);
+  const rating = libraryBook?.rating || 0;
 
   return (
     <div
-      onClick={() => navigate(`/book/${book.id}`)}
+      onClick={onClick || (() => navigate(`/book/${book.id}`))}
       style={{ cursor: 'pointer', position: 'relative' }}
     >
       <BookCover
@@ -30,34 +31,6 @@ export default function BookCard({
         bookId={book.id}
         borderRadius="10px"
       />
-
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleFavorite();
-        }}
-        style={{
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
-          background: 'rgba(20,16,16,0.7)',
-          border: 'none',
-          borderRadius: '50%',
-          width: '28px',
-          height: '28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          backdropFilter: 'blur(4px)',
-        }}
-      >
-        <Heart
-          size={12}
-          fill={isFavorite ? '#e74c3c' : 'none'}
-          color={isFavorite ? '#e74c3c' : '#e2ddd5'}
-        />
-      </button>
 
       <p
         style={{
@@ -75,14 +48,26 @@ export default function BookCard({
       >
         {book.title}
       </p>
-      <p style={{ fontSize: '10px', color: muted, marginTop: '2px' }}>
-        {book.author}
-      </p>
-      {book.spice > 0 && (
-        <p style={{ fontSize: '10px', marginTop: '2px' }}>
-          {'🌶️'.repeat(book.spice)}
-        </p>
-      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+        {book.spice > 0 && (
+          <p style={{ fontSize: '10px' }}>
+            {'🌶️'.repeat(book.spice)}
+          </p>
+        )}
+        {rating > 0 && (
+          <span style={{
+            fontSize: '10px',
+            color: '#c9a84c',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+          }}>
+            <Star size={8} fill="#c9a84c" color="#c9a84c" />
+            {rating}/10
+          </span>
+        )}
+      </div>
     </div>
   );
 }
