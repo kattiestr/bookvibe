@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBooks } from '../hooks/BooksContext';
 import type { Book } from '../data/books';
@@ -29,14 +29,18 @@ export default function HomePage() {
   const [sel, setSel] = useState<string | null>(null);
   const [greeting] = useState(() => getTimeGreeting());
 
-  const books = sel
-    ? booksDatabase.filter((b) => {
-        const cat = CATEGORIES.find((c) => c.slug === sel);
-        if (!cat) return false;
-        if (cat.type === 'genre') return b.genres.includes(sel as any);
-        return b.tropes.includes(sel as any);
-      })
-    : booksDatabase;
+  const shuffledBooks = useMemo(() => {
+  return [...booksDatabase].sort(() => Math.random() - 0.5);
+}, []);
+
+const books = sel
+  ? shuffledBooks.filter((b) => {
+      const cat = CATEGORIES.find((c) => c.slug === sel);
+      if (!cat) return false;
+      if (cat.type === 'genre') return b.genres.includes(sel as any);
+      return b.tropes.includes(sel as any);
+    })
+  : shuffledBooks;
 
   const toggle = (book: Book) => {
     isFavorite(book.id) ? removeFavorite(book.id) : addFavorite(book);
