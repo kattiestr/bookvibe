@@ -8,22 +8,21 @@ import React, {
 import { getSupabase } from '../lib/supabaseClient';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const FINDER_CACHE_KEY = 'bookCovers_v4';
 
 interface CoverContextType {
   getCover: (bookId: string) => string | null;
-  setLocalCover: (bookId: string, url: string) => void;
   refreshCovers: () => Promise<void>;
 }
 
 const CoverContext = createContext<CoverContextType>({
   getCover: () => null,
-  setLocalCover: () => {},
   refreshCovers: async () => {},
 });
 
-function loadLocalCovers(): Record<string, string> {
+function getFinderCache(): Record<string, string> {
   try {
-    const raw = localStorage.getItem('customCovers');
+    const raw = localStorage.getItem(FINDER_CACHE_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -53,37 +52,30 @@ async function loadFromSupabase(): Promise<Record<string, string>> {
 
 export function CoverProvider({ children }: { children: React.ReactNode }) {
   const [supabaseMap, setSupabaseMap] = useState<Record<string, string>>({});
-  const [localMap, setLocalMap] = useState<Record<string, string>>(() => loadLocalCovers());
+  const [finderCache, setFinderCache] = useState<Record<string, string>>(() => getFinderCache());
 
   const refreshCovers = useCallback(async () => {
     const map = await loadFromSupabase();
     setSupabaseMap(map);
+    setFinderCache(getFinderCache());
   }, []);
 
   useEffect(() => {
     refreshCovers();
   }, [refreshCovers]);
 
-  const setLocalCover = useCallback((bookId: string, url: string) => {
-    setLocalMap((prev) => {
-      const next = { ...prev, [bookId]: url };
-      try {
-        localStorage.setItem('customCovers', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  }, []);
-
   const getCover = useCallback(
     (bookId: string): string | null => {
-      if (localMap[bookId]) return localMap[bookId];
-      return supabaseMap[bookId] ?? null;
+      if (supabaseMap[bookId]) return supabaseMap[bookId];
+      const cached = finderCache[bookId];
+      if (cached && cached !== 'NONE' && cached.length > 5) return cached;
+      return null;
     },
-    [localMap, supabaseMap]
+    [supabaseMap, finderCache]
   );
 
   return (
-    <CoverContext.Provider value={{ getCover, setLocalCover, refreshCovers }}>
+    <CoverContext.Provider value={{ getCover, refreshCovers }}>
       {children}
     </CoverContext.Provider>
   );

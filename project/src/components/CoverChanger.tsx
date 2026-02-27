@@ -29,7 +29,7 @@ export default function CoverChanger({
   onChanged,
   onClose,
 }: Props) {
-  const { setLocalCover, refreshCovers } = useCovers();
+  const { refreshCovers } = useCovers();
   const [results, setResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState(`${bookTitle} ${bookAuthor}`);
@@ -111,12 +111,9 @@ export default function CoverChanger({
     setSaving(true);
     setSaveMsg('');
 
-    setLocalCover(bookId, imageUrl);
-    onChanged(imageUrl);
-
     const adminToken = getAdminToken();
     if (!adminToken) {
-      setSaveMsg('No admin token. Saved only locally (this browser).');
+      setSaveMsg('No admin token — cover not saved.');
       setSaving(false);
       return;
     }
@@ -138,9 +135,10 @@ export default function CoverChanger({
         return;
       }
 
-      setSaveMsg('Saved globally (Supabase)');
+      setSaveMsg('Saved!');
       setSaving(false);
-      refreshCovers();
+      onChanged(imageUrl);
+      await refreshCovers();
     } catch (e: any) {
       setSaveMsg(`Save failed: ${e?.message || String(e)}`);
       setSaving(false);

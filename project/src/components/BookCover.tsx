@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
@@ -34,7 +34,7 @@ function hashColor(title: string): string {
 }
 
 export function saveCustomCover(_bookId: string, _url: string) {
-  // No-op: saving is now handled via CoverContext.setLocalCover for reactivity
+  // No-op: saving handled via CoverChanger → API → Supabase
 }
 
 function Placeholder({
@@ -136,38 +136,23 @@ export default function BookCover({
   const { getCover } = useCovers();
   const effectiveId = bookId || isbn;
 
-  const getCoverRef = useRef(getCover);
-  getCoverRef.current = getCover;
-
-  function pick(currentSrc: string, currentId: string | undefined): string {
-    // 1) getCover checks local overrides first, then Supabase
-    if (currentId) {
-      const override = getCoverRef.current(currentId);
-      if (override) return override;
+  function pick(): string {
+    if (effectiveId) {
+      const ctx = getCover(effectiveId);
+      if (ctx) return ctx;
     }
-
-    // 2) static src
-    if (currentSrc && currentSrc.length > 5) return currentSrc;
-
+    if (src && src.length > 5) return src;
     return '';
   }
 
-  const [displaySrc, setDisplaySrc] = useState(() => pick(src, effectiveId));
+  const [displaySrc, setDisplaySrc] = useState(() => pick());
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const next = pick(src, effectiveId);
+    const next = pick();
     setDisplaySrc(next);
     setFailed(false);
   }, [src, bookId, isbn, getCover]);
-
-  useEffect(() => {
-    if (!effectiveId) return;
-    const override = getCover(effectiveId);
-    if (!override) return;
-    setDisplaySrc(override);
-    setFailed(false);
-  }, [getCover, effectiveId]);
 
   if (failed || !displaySrc) {
     return (
