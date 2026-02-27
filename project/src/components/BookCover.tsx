@@ -33,24 +33,8 @@ function hashColor(title: string): string {
   return COLORS[Math.abs(h) % COLORS.length];
 }
 
-export function saveCustomCover(bookId: string, url: string) {
-  try {
-    const raw = localStorage.getItem('customCovers');
-    const map = raw ? JSON.parse(raw) : {};
-    map[bookId] = url;
-    localStorage.setItem('customCovers', JSON.stringify(map));
-  } catch {}
-}
-
-function getLocalOverride(bookId?: string): string | null {
-  if (!bookId) return null;
-  try {
-    const raw = localStorage.getItem('customCovers');
-    if (!raw) return null;
-    return JSON.parse(raw)[bookId] ?? null;
-  } catch {
-    return null;
-  }
+export function saveCustomCover(_bookId: string, _url: string) {
+  // No-op: saving is now handled via CoverContext.setLocalCover for reactivity
 }
 
 function Placeholder({
@@ -156,18 +140,14 @@ export default function BookCover({
   getCoverRef.current = getCover;
 
   function pick(currentSrc: string, currentId: string | undefined): string {
-    // 1) localStorage override (explicit user choice)
-    const local = getLocalOverride(bookId);
-    if (local) return local;
+    // 1) getCover checks local overrides first, then Supabase
+    if (currentId) {
+      const override = getCoverRef.current(currentId);
+      if (override) return override;
+    }
 
     // 2) static src
     if (currentSrc && currentSrc.length > 5) return currentSrc;
-
-    // 3) Supabase cover as fallback when src is empty
-    if (currentId) {
-      const ctx = getCoverRef.current(currentId);
-      if (ctx) return ctx;
-    }
 
     return '';
   }
@@ -179,20 +159,15 @@ export default function BookCover({
     const next = pick(src, effectiveId);
     setDisplaySrc(next);
     setFailed(false);
-  }, [src, bookId, isbn]);
+  }, [src, bookId, isbn, getCover]);
 
   useEffect(() => {
     if (!effectiveId) return;
-    const supabaseCover = getCover(effectiveId);
-    if (!supabaseCover) return;
-    // Only apply Supabase cover if there's no local override and static src failed or is empty
-    const local = getLocalOverride(bookId);
-    if (local) return;
-    if (!src || src.length <= 5 || failed) {
-      setDisplaySrc(supabaseCover);
-      setFailed(false);
-    }
-  }, [getCover, effectiveId, failed]);
+    const override = getCover(effectiveId);
+    if (!override) return;
+    setDisplaySrc(override);
+    setFailed(false);
+  }, [getCover, effectiveId]);
 
   if (failed || !displaySrc) {
     return (

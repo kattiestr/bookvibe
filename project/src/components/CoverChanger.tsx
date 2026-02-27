@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Search, X, Check, Loader } from 'lucide-react';
-import { saveCustomCover } from './BookCover';
 import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
@@ -30,7 +29,7 @@ export default function CoverChanger({
   onChanged,
   onClose,
 }: Props) {
-  const { refreshCovers } = useCovers();
+  const { setLocalCover, refreshCovers } = useCovers();
   const [results, setResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState(`${bookTitle} ${bookAuthor}`);
@@ -112,7 +111,7 @@ export default function CoverChanger({
     setSaving(true);
     setSaveMsg('');
 
-    saveCustomCover(bookId, imageUrl);
+    setLocalCover(bookId, imageUrl);
     onChanged(imageUrl);
 
     const adminToken = getAdminToken();
