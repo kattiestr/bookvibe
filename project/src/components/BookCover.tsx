@@ -42,7 +42,7 @@ export function saveCustomCover(bookId: string, url: string) {
   } catch {}
 }
 
-function getLocalOverride(bookId?: string): string | null {
+function getSavedCover(bookId?: string): string | null {
   if (!bookId) return null;
   try {
     const saved = localStorage.getItem('customCovers');
@@ -180,20 +180,23 @@ export default function BookCover({
   useEffect(() => {
     setFailed(false);
 
-    const localOverride = getLocalOverride(bookId);
+    // 1. Local session override (immediate feedback after admin picks a cover)
+    const localOverride = getSavedCover(bookId);
     if (localOverride) {
       setCurrentSrc(localOverride);
       return;
     }
 
+    // 2. Supabase Storage cover (admin-saved, only present when explicitly set)
     if (effectiveId) {
-      const contextUrl = getCover(effectiveId);
-      if (contextUrl && contextUrl.length > 5) {
-        setCurrentSrc(contextUrl);
+      const supabaseCover = getCover(effectiveId);
+      if (supabaseCover) {
+        setCurrentSrc(supabaseCover);
         return;
       }
     }
 
+    // 3. The original src prop (static booksDatabase URL — always present)
     if (src && src.length > 5) {
       setCurrentSrc(src);
       return;

@@ -5,25 +5,21 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import { booksDatabase } from '../data/books';
-import { getCachedCover } from '../utils/coverFinder';
 import { getSupabase } from '../lib/supabaseClient';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 
 interface CoverContextType {
-  getCover: (bookId: string) => string;
+  getCover: (bookId: string) => string | null;
   refreshCovers: () => Promise<void>;
-  isLoading: boolean;
 }
 
 const CoverContext = createContext<CoverContextType>({
-  getCover: () => '',
+  getCover: () => null,
   refreshCovers: async () => {},
-  isLoading: true,
 });
 
-async function fetchSupabaseCovers(): Promise<Record<string, string>> {
+async function loadFromSupabase(): Promise<Record<string, string>> {
   const sb = getSupabase();
   if (!sb.client || !SUPABASE_URL) return {};
 
@@ -37,42 +33,34 @@ async function fetchSupabaseCovers(): Promise<Record<string, string>> {
   const map: Record<string, string> = {};
   for (const row of data) {
     if (row.external_id && row.cover_path) {
-      map[String(row.external_id)] = `${SUPABASE_URL}/storage/v1/object/public/covers/${row.cover_path}`;
+      map[String(row.external_id)] =
+        `${SUPABASE_URL}/storage/v1/object/public/covers/${row.cover_path}`;
     }
   }
   return map;
 }
 
 export function CoverProvider({ children }: { children: React.ReactNode }) {
-  const [supabaseCovers, setSupabaseCovers] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [coverMap, setCoverMap] = useState<Record<string, string>>({});
 
   const refreshCovers = useCallback(async () => {
-    const map = await fetchSupabaseCovers();
-    setSupabaseCovers(map);
+    const map = await loadFromSupabase();
+    setCoverMap(map);
   }, []);
 
   useEffect(() => {
-    refreshCovers().finally(() => setIsLoading(false));
+    refreshCovers();
   }, [refreshCovers]);
 
   const getCover = useCallback(
-    (bookId: string): string => {
-      if (supabaseCovers[bookId]) {
-        return supabaseCovers[bookId];
-      }
-
-      const cached = getCachedCover(bookId);
-      if (cached) return cached;
-
-      const book = booksDatabase.find((b) => b.id === bookId);
-      return book?.cover || '';
+    (bookId: string): string | null => {
+      return coverMap[bookId] ?? null;
     },
-    [supabaseCovers]
+    [coverMap]
   );
 
   return (
-    <CoverContext.Provider value={{ getCover, refreshCovers, isLoading }}>
+    <CoverContext.Provider value={{ getCover, refreshCovers }}>
       {children}
     </CoverContext.Provider>
   );
