@@ -7,25 +7,17 @@ import { useFavorites } from '../hooks/useFavorites';
 import { getTimeGreeting } from '../components/SassyToast';
 import { getSupabase } from '../lib/supabaseClient';
 
-const TROPES = [
-  'enemies-to-lovers',
-  'morally-grey',
-  'forced-proximity',
-  'grumpy-sunshine',
-  'slow-burn',
-  'possessive-hero',
-  'forbidden-love',
-  'fake-dating',
-  'only-one-bed',
-  'who-did-this-to-you',
-  'touch-her-and-die',
-  'hidden-identity',
-  'royalty',
-  'academy',
-  'fae',
-  'vampires',
-  'dark-romance',
-  'strong-fmc',
+const CATEGORIES = [
+  { slug: 'dark-romance',      label: '🖤 Dark Romance',      type: 'genre' },
+  { slug: 'enemies-to-lovers', label: '⚔️ Enemies to Lovers', type: 'trope' },
+  { slug: 'vampire-romance',   label: '🧛 Vampires',          type: 'trope' },
+  { slug: 'royalty',           label: '👑 Royalty',           type: 'trope' },
+  { slug: 'academy',           label: '🎓 Academy',           type: 'trope' },
+  { slug: 'werewolf-romance',  label: '🐺 Shifters & Wolves', type: 'trope' },
+  { slug: 'morally-grey',      label: '💀 Morally Grey',      type: 'trope' },
+  { slug: 'slow-burn',         label: '🔥 Slow Burn',         type: 'trope' },
+  { slug: 'monster-romance',   label: '👹 Monster Romance',   type: 'trope' },
+  { slug: 'mafia-romance',     label: '🗡️ Mafia',            type: 'genre' },
 ];
 
 const accent = '#c4a07c';
