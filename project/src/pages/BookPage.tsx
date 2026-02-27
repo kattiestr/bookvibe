@@ -639,8 +639,9 @@ export default function BookPage() {
           bookTitle={book.title}
           bookAuthor={book.author}
           onChanged={(newUrl) => {
-            setOverrideSrc(newUrl);
+            setCoverSrc(newUrl);
             setShowCoverChanger(false);
+            setCoverKey((k) => k + 1);
           }}
           onClose={() => setShowCoverChanger(false)}
         />
