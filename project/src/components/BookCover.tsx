@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
@@ -131,41 +131,12 @@ export default function BookCover({
   style = {},
   onClick,
 }: Props) {
-  const { getCover, requestCover, version, ready } = useCovers();
+  const { getCover } = useCovers();
   const effectiveId = bookId || isbn;
-  const requestedRef = useRef(false);
-
-  function computeSrc(): string {
-    if (effectiveId) {
-      const ctx = getCover(effectiveId);
-      if (ctx) return ctx;
-    }
-    if (src && src.length > 5) return src;
-    return '';
-  }
-
-  const [displaySrc, setDisplaySrc] = useState(computeSrc);
   const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    const next = computeSrc();
-    if (next && next !== displaySrc) {
-      setDisplaySrc(next);
-      setFailed(false);
-    } else if (!next && displaySrc) {
-      setDisplaySrc('');
-    }
-  }, [src, bookId, isbn, version]);
-
-  useEffect(() => {
-    if (!ready) return;
-    if (requestedRef.current) return;
-    if (!effectiveId || !author) return;
-    if (getCover(effectiveId)) return;
-
-    requestedRef.current = true;
-    requestCover(effectiveId, title, author, src);
-  }, [effectiveId, ready]);
+  const contextCover = effectiveId ? getCover(effectiveId) : null;
+  const displaySrc = contextCover || src || '';
 
   if (failed || !displaySrc) {
     return (
@@ -186,17 +157,6 @@ export default function BookCover({
       src={displaySrc}
       alt={title}
       onError={() => setFailed(true)}
-      onLoad={(e) => {
-        const img = e.currentTarget;
-        if (img.naturalWidth <= 1 || img.naturalHeight <= 1) {
-          setFailed(true);
-          return;
-        }
-        const ratio = img.naturalWidth / img.naturalHeight;
-        if (ratio > 0.85 && ratio < 1.15 && img.naturalWidth <= 250) {
-          setFailed(true);
-        }
-      }}
       onClick={onClick}
       style={{
         width,
