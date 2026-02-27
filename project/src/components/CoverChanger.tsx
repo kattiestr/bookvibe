@@ -17,7 +17,6 @@ const muted = '#5c5450';
 function getAdminToken(): string {
   const existing = localStorage.getItem('adminToken');
   if (existing && existing.trim()) return existing.trim();
-
   const entered = window.prompt('Enter admin token (one-time)') || '';
   const token = entered.trim();
   if (token) localStorage.setItem('adminToken', token);
@@ -38,18 +37,14 @@ export default function CoverChanger({
   const [customUrl, setCustomUrl] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [searchDone, setSearchDone] = useState(false);
-
-  // Save status
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string>('');
+  const [saveMsg, setSaveMsg] = useState('');
 
-  // Auto-search on open
   useEffect(() => {
     searchCovers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const searchCovers = async () => {
+  async function searchCovers() {
     setLoading(true);
     setResults([]);
     setSelected(null);
@@ -57,14 +52,12 @@ export default function CoverChanger({
 
     const allUrls: string[] = [];
 
-    // === Source 1: Open Library ===
     try {
       const q = encodeURIComponent(query);
       const res = await fetch(
         `https://openlibrary.org/search.json?q=${q}&limit=12&fields=key,cover_i,edition_key,isbn`
       );
       const data = await res.json();
-
       if (data.docs) {
         for (const doc of data.docs) {
           if (doc.cover_i) {
@@ -72,21 +65,19 @@ export default function CoverChanger({
             if (!allUrls.includes(url)) allUrls.push(url);
           }
           if (doc.isbn && doc.isbn.length > 0) {
-            const isbnUrl = `https://covers.openlibrary.org/b/isbn/${doc.isbn[0]}-L.jpg`;
-            if (!allUrls.includes(isbnUrl)) allUrls.push(isbnUrl);
+            const url = `https://covers.openlibrary.org/b/isbn/${doc.isbn[0]}-L.jpg`;
+            if (!allUrls.includes(url)) allUrls.push(url);
           }
         }
       }
     } catch {}
 
-    // === Source 2: Google Books (backup) ===
     try {
       const q = encodeURIComponent(query);
       const res = await fetch(
         `https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=8&printType=books`
       );
       const data = await res.json();
-
       if (data.items) {
         for (const item of data.items) {
           const images = item.volumeInfo?.imageLinks;
@@ -101,32 +92,29 @@ export default function CoverChanger({
       }
     } catch {}
 
-    // === Source 3: ISBN from bookId (for NYT books) ===
     if (bookId.startsWith('nyt-')) {
       const isbn = bookId.replace('nyt-', '');
       if (isbn) {
-        const isbnUrl = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
-        if (!allUrls.includes(isbnUrl)) allUrls.unshift(isbnUrl);
+        const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+        if (!allUrls.includes(url)) allUrls.unshift(url);
       }
     }
 
     setResults(allUrls.slice(0, 12));
     setLoading(false);
     setSearchDone(true);
-  };
+  }
 
-  const handleSave = async () => {
+  async function handleSave() {
     const imageUrl = (selected || customUrl || '').trim();
     if (!imageUrl) return;
 
     setSaving(true);
     setSaveMsg('');
 
-    // 1) Immediately update UI locally so you SEE the change
     saveCustomCover(bookId, imageUrl);
     onChanged(imageUrl);
 
-    // 2) Global admin save via API (Supabase storage + DB update)
     const adminToken = getAdminToken();
     if (!adminToken) {
       setSaveMsg('No admin token. Saved only locally (this browser).');
@@ -151,14 +139,14 @@ export default function CoverChanger({
         return;
       }
 
-      setSaveMsg('Saved globally ✅ (Supabase)');
+      setSaveMsg('Saved globally (Supabase)');
       setSaving(false);
       refreshCovers();
     } catch (e: any) {
       setSaveMsg(`Save failed: ${e?.message || String(e)}`);
       setSaving(false);
     }
-  };
+  }
 
   const showSaveButton = Boolean(selected || customUrl);
 
@@ -211,12 +199,7 @@ export default function CoverChanger({
           </h3>
           <button
             onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: muted,
-              cursor: 'pointer',
-            }}
+            style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer' }}
           >
             <X size={20} />
           </button>
@@ -255,11 +238,7 @@ export default function CoverChanger({
               opacity: loading ? 0.5 : 1,
             }}
           >
-            {loading ? (
-              <Loader size={16} className="animate-spin" />
-            ) : (
-              <Search size={16} />
-            )}
+            {loading ? <Loader size={16} className="animate-spin" /> : <Search size={16} />}
           </button>
         </div>
 
@@ -277,9 +256,7 @@ export default function CoverChanger({
                 animation: 'spin 1s linear infinite',
               }}
             />
-            <p style={{ fontSize: '12px', color: muted }}>
-              Searching covers...
-            </p>
+            <p style={{ fontSize: '12px', color: muted }}>Searching covers...</p>
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           </div>
         )}
@@ -318,10 +295,7 @@ export default function CoverChanger({
                       objectFit: 'cover',
                       borderRadius: '8px',
                       cursor: 'pointer',
-                      border:
-                        selected === url
-                          ? `3px solid ${accent}`
-                          : '3px solid transparent',
+                      border: selected === url ? `3px solid ${accent}` : '3px solid transparent',
                       opacity: selected === url ? 1 : 0.7,
                       transition: 'all 0.2s',
                     }}
@@ -388,7 +362,6 @@ export default function CoverChanger({
               boxSizing: 'border-box',
             }}
           />
-
           {customUrl && (
             <div style={{ marginTop: '8px', textAlign: 'center' }}>
               <img

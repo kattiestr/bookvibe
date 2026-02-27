@@ -1,10 +1,10 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { booksDatabase } from '../api/books';
 import { useFavorites } from '../hooks/useFavorites';
 import { useLibrary } from '../hooks/LibraryContext';
 import { seriesDatabase } from '../data/series';
 import { ArrowLeft, Heart, BookOpen, Camera, ShoppingCart } from 'lucide-react';
-import { useState, useEffect } from 'react';
 import BookCover from '../components/BookCover';
 import CoverChanger from '../components/CoverChanger';
 import BookArtGallery from '../components/BookArtGallery';
@@ -18,25 +18,23 @@ export default function BookPage() {
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
   const { addToLibrary, isInLibrary, library } = useLibrary();
   const [showCoverChanger, setShowCoverChanger] = useState(false);
-  const [coverKey, setCoverKey] = useState(0);
-  const [coverSrc, setCoverSrc] = useState<string>('');
+  const [overrideSrc, setOverrideSrc] = useState<string | null>(null);
 
   const book = booksDatabase.find((b) => b.id === id);
+
   useEffect(() => {
-  if (!book) return;
-  setCoverSrc(book.cover || '');
-}, [book?.id]);
+    setOverrideSrc(null);
+  }, [id]);
 
   if (!book) {
     return (
-      <div
-        className="max-w-lg mx-auto px-4 pt-12"
-        style={{ textAlign: 'center' }}
-      >
+      <div className="max-w-lg mx-auto px-4 pt-12" style={{ textAlign: 'center' }}>
         <p style={{ color: muted }}>Book not found</p>
       </div>
     );
   }
+
+  const coverSrc = overrideSrc ?? book.cover;
 
   const similar = booksDatabase.filter((b) => book.similar?.includes(b.title));
   const fav = isFavorite(book.id);
@@ -65,13 +63,7 @@ export default function BookPage() {
     <div className="max-w-lg mx-auto px-4 pt-4 pb-28">
       <button
         onClick={() => navigate(-1)}
-        style={{
-          color: muted,
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          marginBottom: '16px',
-        }}
+        style={{ color: muted, background: 'none', border: 'none', cursor: 'pointer', marginBottom: '16px' }}
       >
         <ArrowLeft size={20} />
       </button>
@@ -80,7 +72,6 @@ export default function BookPage() {
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
         <div style={{ width: '120px', flexShrink: 0 }}>
           <BookCover
-            key={coverKey}
             src={coverSrc}
             title={book.title}
             author={book.author}
@@ -126,9 +117,7 @@ export default function BookPage() {
             {book.title}
           </h1>
           <p
-            onClick={() =>
-              navigate(`/author/${encodeURIComponent(book.author)}`)
-            }
+            onClick={() => navigate(`/author/${encodeURIComponent(book.author)}`)}
             style={{
               fontSize: '13px',
               color: muted,
@@ -146,40 +135,20 @@ export default function BookPage() {
               {book.series} #{book.seriesNumber}
             </p>
           )}
-          <div
-            style={{
-              display: 'flex',
-              gap: '8px',
-              marginTop: '6px',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
             {book.spice > 0 && (
-              <span style={{ fontSize: '11px' }}>
-                {'🌶️'.repeat(book.spice)}
-              </span>
+              <span style={{ fontSize: '11px' }}>{'🌶️'.repeat(book.spice)}</span>
             )}
             {book.pages && (
-              <span style={{ fontSize: '11px', color: muted }}>
-                {book.pages} pages
-              </span>
+              <span style={{ fontSize: '11px', color: muted }}>{book.pages} pages</span>
             )}
             {book.year && (
-              <span style={{ fontSize: '11px', color: muted }}>
-                {book.year}
-              </span>
+              <span style={{ fontSize: '11px', color: muted }}>{book.year}</span>
             )}
           </div>
 
           {/* Action Buttons */}
-          <div
-            style={{
-              display: 'flex',
-              gap: '8px',
-              marginTop: '12px',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
             <button
               onClick={() => {
                 if (!inLib) addToLibrary(book);
@@ -206,12 +175,7 @@ export default function BookPage() {
             {!inLib && (
               <button
                 onClick={() =>
-                  addToLibrary({
-                    ...book,
-                    id: book.id,
-                    pages: book.pages,
-                    status: 'wishlist',
-                  })
+                  addToLibrary({ ...book, id: book.id, pages: book.pages, status: 'wishlist' })
                 }
                 style={{
                   padding: '10px 14px',
@@ -249,9 +213,7 @@ export default function BookPage() {
             )}
 
             <button
-              onClick={() =>
-                fav ? removeFavorite(book.id) : addFavorite(book as any)
-              }
+              onClick={() => (fav ? removeFavorite(book.id) : addFavorite(book as any))}
               style={{
                 padding: '10px 14px',
                 borderRadius: '20px',
@@ -262,11 +224,7 @@ export default function BookPage() {
                 alignItems: 'center',
               }}
             >
-              <Heart
-                size={14}
-                fill={fav ? '#e74c3c' : 'none'}
-                color={fav ? '#e74c3c' : muted}
-              />
+              <Heart size={14} fill={fav ? '#e74c3c' : 'none'} color={fav ? '#e74c3c' : muted} />
             </button>
           </div>
         </div>
@@ -294,9 +252,7 @@ export default function BookPage() {
           >
             ✨ Why You'll Love This
           </h3>
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
-          >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {book.vibes.map((vibe, i) => (
               <p
                 key={i}
@@ -453,8 +409,7 @@ export default function BookPage() {
                 width: `${(ownedInSeries / totalInSeries) * 100}%`,
                 height: '100%',
                 borderRadius: '3px',
-                background:
-                  ownedInSeries === totalInSeries ? '#6b9e7a' : accent,
+                background: ownedInSeries === totalInSeries ? '#6b9e7a' : accent,
                 transition: 'width 0.5s ease',
               }}
             />
@@ -483,9 +438,7 @@ export default function BookPage() {
           >
             {Array.from({ length: totalInSeries }, (_, i) => {
               const num = i + 1;
-              const seriesBook = seriesBooks.find(
-                (b) => b.seriesNumber === num
-              );
+              const seriesBook = seriesBooks.find((b) => b.seriesNumber === num);
               const owned = seriesBook && isInLibrary(seriesBook.id);
               const isCurrent = seriesBook?.id === book.id;
 
@@ -494,18 +447,12 @@ export default function BookPage() {
                   <div
                     key={num}
                     onClick={() => navigate(`/book/${seriesBook.id}`)}
-                    style={{
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      opacity: owned ? 1 : 0.5,
-                    }}
+                    style={{ cursor: 'pointer', textAlign: 'center', opacity: owned ? 1 : 0.5 }}
                   >
                     <div
                       style={{
                         position: 'relative',
-                        border: isCurrent
-                          ? `2px solid ${accent}`
-                          : '2px solid transparent',
+                        border: isCurrent ? `2px solid ${accent}` : '2px solid transparent',
                         borderRadius: '6px',
                         overflow: 'hidden',
                       }}
@@ -568,19 +515,9 @@ export default function BookPage() {
                       background: '#141010',
                     }}
                   >
-                    <span style={{ fontSize: '16px', color: '#2a2520' }}>
-                      ?
-                    </span>
+                    <span style={{ fontSize: '16px', color: '#2a2520' }}>?</span>
                   </div>
-                  <p
-                    style={{
-                      fontSize: '8px',
-                      color: '#2a2520',
-                      marginTop: '2px',
-                    }}
-                  >
-                    #{num}
-                  </p>
+                  <p style={{ fontSize: '8px', color: '#2a2520', marginTop: '2px' }}>#{num}</p>
                 </div>
               );
             })}
@@ -595,8 +532,7 @@ export default function BookPage() {
               ) : (
                 <div>
                   <span style={{ fontSize: '10px', color: '#c9a84c' }}>
-                    ⏳ Ongoing series · {seriesBooks.length} of{' '}
-                    {totalInSeries || '?'} released
+                    ⏳ Ongoing series · {seriesBooks.length} of {totalInSeries || '?'} released
                   </span>
                   {seriesInfo.joke && (
                     <p
@@ -648,10 +584,7 @@ export default function BookPage() {
                   height={112}
                   borderRadius="8px"
                 />
-                <p
-                  style={{ fontSize: '10px', color: muted, marginTop: '4px' }}
-                  className="truncate"
-                >
+                <p style={{ fontSize: '10px', color: muted, marginTop: '4px' }} className="truncate">
                   {a.title}
                 </p>
               </div>
@@ -691,10 +624,7 @@ export default function BookPage() {
                   height={112}
                   borderRadius="8px"
                 />
-                <p
-                  style={{ fontSize: '10px', color: muted, marginTop: '4px' }}
-                  className="truncate"
-                >
+                <p style={{ fontSize: '10px', color: muted, marginTop: '4px' }} className="truncate">
                   {s.title}
                 </p>
               </div>
@@ -709,9 +639,8 @@ export default function BookPage() {
           bookTitle={book.title}
           bookAuthor={book.author}
           onChanged={(newUrl) => {
-            setCoverSrc(newUrl);
+            setOverrideSrc(newUrl);
             setShowCoverChanger(false);
-            setCoverKey((k) => k + 1);
           }}
           onClose={() => setShowCoverChanger(false)}
         />

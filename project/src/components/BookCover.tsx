@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
@@ -25,33 +25,32 @@ const COLORS = [
   'linear-gradient(135deg, #1a2a2a, #2a4a4a)',
 ];
 
-function getColor(title: string) {
-  let hash = 0;
+function hashColor(title: string): string {
+  let h = 0;
   for (let i = 0; i < title.length; i++) {
-    hash = title.charCodeAt(i) + ((hash << 5) - hash);
+    h = title.charCodeAt(i) + ((h << 5) - h);
   }
-  return COLORS[Math.abs(hash) % COLORS.length];
+  return COLORS[Math.abs(h) % COLORS.length];
 }
 
 export function saveCustomCover(bookId: string, url: string) {
   try {
-    const saved = localStorage.getItem('customCovers');
-    const map = saved ? JSON.parse(saved) : {};
+    const raw = localStorage.getItem('customCovers');
+    const map = raw ? JSON.parse(raw) : {};
     map[bookId] = url;
     localStorage.setItem('customCovers', JSON.stringify(map));
   } catch {}
 }
 
-function getSavedCover(bookId?: string): string | null {
+function getLocalOverride(bookId?: string): string | null {
   if (!bookId) return null;
   try {
-    const saved = localStorage.getItem('customCovers');
-    if (saved) {
-      const map = JSON.parse(saved);
-      return map[bookId] || null;
-    }
-  } catch {}
-  return null;
+    const raw = localStorage.getItem('customCovers');
+    if (!raw) return null;
+    return JSON.parse(raw)[bookId] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function Placeholder({
@@ -76,10 +75,10 @@ function Placeholder({
       onClick={onClick}
       style={{
         width,
-        height: height || 'auto',
+        height: height ?? 'auto',
         aspectRatio: height ? undefined : '2/3',
         borderRadius,
-        background: getColor(title),
+        background: hashColor(title),
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -90,37 +89,26 @@ function Placeholder({
         boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
         position: 'relative',
         cursor: onClick ? 'pointer' : 'default',
+        flexShrink: 0,
         ...style,
       }}
     >
       <div
         style={{
           position: 'absolute',
-          left: '8px',
+          left: 8,
           top: '10%',
           bottom: '10%',
-          width: '2px',
+          width: 2,
           background: 'rgba(226,221,213,0.1)',
-          borderRadius: '1px',
+          borderRadius: 1,
         }}
       />
-      <div
-        style={{
-          position: 'absolute',
-          top: '8px',
-          left: '15%',
-          right: '15%',
-          height: '1px',
-          background: 'rgba(226,221,213,0.06)',
-        }}
-      />
-      <span style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5 }}>
-        📖
-      </span>
+      <span style={{ fontSize: 24, marginBottom: 8, opacity: 0.5 }}>📖</span>
       <p
         style={{
           fontFamily: 'Playfair Display, serif',
-          fontSize: '12px',
+          fontSize: 12,
           fontWeight: 700,
           color: '#e2ddd5',
           lineHeight: 1.3,
@@ -136,25 +124,15 @@ function Placeholder({
       {author && (
         <p
           style={{
-            fontSize: '9px',
+            fontSize: 9,
             color: 'rgba(226,221,213,0.4)',
-            marginTop: '6px',
+            marginTop: 6,
             fontStyle: 'italic',
           }}
         >
           {author}
         </p>
       )}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '8px',
-          left: '15%',
-          right: '15%',
-          height: '1px',
-          background: 'rgba(226,221,213,0.06)',
-        }}
-      />
     </div>
   );
 }
@@ -172,57 +150,42 @@ export default function BookCover({
   onClick,
 }: Props) {
   const { getCover } = useCovers();
-  const [failed, setFailed] = useState(false);
-  const [currentSrc, setCurrentSrc] = useState('');
-
   const effectiveId = bookId || isbn;
 
+  const getCoverRef = useRef(getCover);
+  getCoverRef.current = getCover;
+
+  function pick(currentSrc: string, currentId: string | undefined): string {
+    const local = getLocalOverride(bookId);
+    if (local) return local;
+    if (currentSrc && currentSrc.length > 5) return currentSrc;
+    if (currentId) {
+      const ctx = getCoverRef.current(currentId);
+      if (ctx) return ctx;
+    }
+    return '';
+  }
+
+  const [displaySrc, setDisplaySrc] = useState(() => pick(src, effectiveId));
+  const [failed, setFailed] = useState(false);
+  const prevSrcRef = useRef(src);
+
   useEffect(() => {
+    const next = pick(src, effectiveId);
+    setDisplaySrc(next);
     setFailed(false);
+    prevSrcRef.current = src;
+  }, [src, bookId, isbn]);
 
-    // 1. Local session override (immediate feedback after admin picks a cover)
-    const localOverride = getSavedCover(bookId);
-    if (localOverride) {
-      setCurrentSrc(localOverride);
-      return;
-    }
+  useEffect(() => {
+    if (!effectiveId) return;
+    const supabaseCover = getCover(effectiveId);
+    if (!supabaseCover) return;
+    setDisplaySrc(supabaseCover);
+    setFailed(false);
+  }, [getCover, effectiveId]);
 
-    // 2. Supabase Storage cover (admin-saved, only present when explicitly set)
-    if (effectiveId) {
-      const supabaseCover = getCover(effectiveId);
-      if (supabaseCover) {
-        setCurrentSrc(supabaseCover);
-        return;
-      }
-    }
-
-    // 3. The original src prop (static booksDatabase URL — always present)
-    if (src && src.length > 5) {
-      setCurrentSrc(src);
-      return;
-    }
-
-    setFailed(true);
-  }, [src, bookId, isbn, effectiveId, getCover]);
-
-  const handleError = () => {
-    setFailed(true);
-  };
-
-  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    if (img.naturalWidth <= 1 || img.naturalHeight <= 1) {
-      setFailed(true);
-      return;
-    }
-    const ratio = img.naturalWidth / img.naturalHeight;
-    if (ratio > 0.85 && ratio < 1.15 && img.naturalWidth <= 250) {
-      setFailed(true);
-      return;
-    }
-  };
-
-  if (failed || !currentSrc) {
+  if (failed || !displaySrc) {
     return (
       <Placeholder
         title={title}
@@ -238,19 +201,30 @@ export default function BookCover({
 
   return (
     <img
-      src={currentSrc}
+      src={displaySrc}
       alt={title}
-      onError={handleError}
-      onLoad={handleLoad}
+      onError={() => setFailed(true)}
+      onLoad={(e) => {
+        const img = e.currentTarget;
+        if (img.naturalWidth <= 1 || img.naturalHeight <= 1) {
+          setFailed(true);
+          return;
+        }
+        const ratio = img.naturalWidth / img.naturalHeight;
+        if (ratio > 0.85 && ratio < 1.15 && img.naturalWidth <= 250) {
+          setFailed(true);
+        }
+      }}
       onClick={onClick}
       style={{
         width,
-        height: height || 'auto',
+        height: height ?? 'auto',
         aspectRatio: height ? undefined : '2/3',
         objectFit: 'cover',
         borderRadius,
         boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
         cursor: onClick ? 'pointer' : 'default',
+        flexShrink: 0,
         ...style,
       }}
     />
