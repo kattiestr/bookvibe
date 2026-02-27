@@ -131,7 +131,7 @@ export default function BookCover({
   style = {},
   onClick,
 }: Props) {
-  const { getCover } = useCovers();
+  const { getCover, requestCover } = useCovers();
   const effectiveId = bookId || isbn;
 
   function computeSrc(getC: typeof getCover): string {
@@ -151,6 +151,14 @@ export default function BookCover({
     setDisplaySrc(next);
     setFailed(false);
   }, [src, bookId, isbn, getCover]);
+
+  useEffect(() => {
+    if (!effectiveId || !author) return;
+    const ctx = getCover(effectiveId);
+    if (!ctx) {
+      requestCover(effectiveId, title, author, src);
+    }
+  }, [effectiveId, title, author, src, getCover, requestCover]);
 
   if (failed || !displaySrc) {
     return (
