@@ -4,7 +4,7 @@ import { useBooks } from '../hooks/BooksContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { useLibrary } from '../hooks/LibraryContext';
 import { seriesDatabase } from '../data/series';
-import { ArrowLeft, Heart, BookOpen, Camera, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, BookOpen, Camera, ShoppingCart } from 'lucide-react';
 import BookCover from '../components/BookCover';
 import CoverChanger from '../components/CoverChanger';
 import BookArtGallery from '../components/BookArtGallery';
@@ -213,20 +213,6 @@ export default function BookPage() {
               </span>
             )}
 
-            <button
-              onClick={() => (fav ? removeFavorite(book.id) : addFavorite(book as any))}
-              style={{
-                padding: '10px 14px',
-                borderRadius: '20px',
-                border: 'none',
-                cursor: 'pointer',
-                background: '#1e1a18',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <Heart size={14} fill={fav ? '#e74c3c' : 'none'} color={fav ? '#e74c3c' : muted} />
-            </button>
           </div>
         </div>
       </div>
