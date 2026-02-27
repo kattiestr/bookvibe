@@ -29,12 +29,12 @@ type CatalogBookRow = {
   rating: number | null;
   series_id: string | null;
   series_number: number | null;
-  catalog_series: { name: string } | null;
+  series: { name: string } | null;
   catalog_book_tags: Array<{
     catalog_tags: { slug: string; type: string } | null;
   }>;
   catalog_book_similar: Array<{ similar_book_id: string }>;
-  book_tags: Array<{ vibe_text: string; sort_order: number }>;
+  book_tags: Array<{ sort_order: number }>;
 };
 
 async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | null> {
@@ -53,10 +53,10 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       rating,
       series_id,
       series_number,
-      catalog_series ( name ),
+      series ( name ),
       catalog_book_tags ( catalog_tags ( slug, type ) ),
       catalog_book_similar ( similar_book_id ),
-      book_tags ( vibe_text, sort_order )
+      book_tags ( sort_order )
     `)
     .order('id');
 
@@ -86,9 +86,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       .map((s) => idToTitle[s.similar_book_id])
       .filter(Boolean);
 
-    const vibes = row.book_tags
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((v) => v.vibe_text);
+    const vibes: string[] = [];
 
     const book: Book = {
       id: row.id,
@@ -103,7 +101,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       year: row.year ?? undefined,
       description: row.description ?? undefined,
       rating: row.rating ?? undefined,
-      series: row.catalog_series?.name ?? undefined,
+      series: row.series?.name ?? undefined,
       seriesNumber: row.series_number ?? undefined,
       tropes: tropes as Book['tropes'],
       genres: genres as Book['genres'],
