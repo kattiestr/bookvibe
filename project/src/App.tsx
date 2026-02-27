@@ -19,6 +19,7 @@ import AuthorPage from './pages/AuthorPage';
 import TBRPage from './pages/TBRPage';
 import NYTBookPage from './pages/NYTBookPage';
 import AuthPage from './pages/AuthPage';
+import SettingsPage from './pages/SettingsPage';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/author/:name" element={<AuthorPage />} />
         <Route path="/tbr" element={<TBRPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/trending/:isbn" element={<NYTBookPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
