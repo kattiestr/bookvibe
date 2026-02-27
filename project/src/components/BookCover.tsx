@@ -156,18 +156,19 @@ export default function BookCover({
   getCoverRef.current = getCover;
 
   function pick(currentSrc: string, currentId: string | undefined): string {
-    // 1) localStorage override has highest priority
+    // 1) localStorage override (explicit user choice)
     const local = getLocalOverride(bookId);
     if (local) return local;
 
-    // 2) Supabase admin cover
+    // 2) static src
+    if (currentSrc && currentSrc.length > 5) return currentSrc;
+
+    // 3) Supabase cover as fallback when src is empty
     if (currentId) {
       const ctx = getCoverRef.current(currentId);
       if (ctx) return ctx;
     }
 
-    // 3) static src fallback
-    if (currentSrc && currentSrc.length > 5) return currentSrc;
     return '';
   }
 
@@ -184,9 +185,14 @@ export default function BookCover({
     if (!effectiveId) return;
     const supabaseCover = getCover(effectiveId);
     if (!supabaseCover) return;
-    setDisplaySrc(supabaseCover);
-    setFailed(false);
-  }, [getCover, effectiveId]);
+    // Only apply Supabase cover if there's no local override and static src failed or is empty
+    const local = getLocalOverride(bookId);
+    if (local) return;
+    if (!src || src.length <= 5 || failed) {
+      setDisplaySrc(supabaseCover);
+      setFailed(false);
+    }
+  }, [getCover, effectiveId, failed]);
 
   if (failed || !displaySrc) {
     return (
