@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { getBestCover } from '../utils/coverFinder';
@@ -15,12 +16,14 @@ interface CoverContextType {
   getCover: (bookId: string) => string | null;
   refreshCovers: () => Promise<void>;
   requestCover: (bookId: string, title: string, author: string, fallbackSrc: string) => void;
+  version: number;
 }
 
 const CoverContext = createContext<CoverContextType>({
   getCover: () => null,
   refreshCovers: async () => {},
   requestCover: () => {},
+  version: 0,
 });
 
 function getFinderCache(): Record<string, string> {
@@ -66,22 +69,20 @@ async function loadCoversJson(): Promise<Record<string, string>> {
 const pendingRequests = new Set<string>();
 
 export function CoverProvider({ children }: { children: React.ReactNode }) {
-  const [supabaseMap, setSupabaseMap] = useState<Record<string, string>>({});
-  const [coversJson, setCoversJson] = useState<Record<string, string>>({});
-  const [finderCache, setFinderCache] = useState<Record<string, string>>(() => getFinderCache());
-
-  const refreshFinderCache = useCallback(() => {
-    setFinderCache(getFinderCache());
-  }, []);
+  const supabaseRef = useRef<Record<string, string>>({});
+  const coversJsonRef = useRef<Record<string, string>>({});
+  const finderCacheRef = useRef<Record<string, string>>(getFinderCache());
+  const [version, setVersion] = useState(0);
 
   const refreshCovers = useCallback(async () => {
     const [sbMap, jsonMap] = await Promise.all([
       loadFromSupabase(),
       loadCoversJson(),
     ]);
-    setSupabaseMap(sbMap);
-    setCoversJson(jsonMap);
-    setFinderCache(getFinderCache());
+    supabaseRef.current = sbMap;
+    coversJsonRef.current = jsonMap;
+    finderCacheRef.current = getFinderCache();
+    setVersion((v) => v + 1);
   }, []);
 
   useEffect(() => {
@@ -90,22 +91,22 @@ export function CoverProvider({ children }: { children: React.ReactNode }) {
 
   const getCover = useCallback(
     (bookId: string): string | null => {
-      if (supabaseMap[bookId]) return supabaseMap[bookId];
-      const jsonUrl = coversJson[bookId];
+      const sb = supabaseRef.current[bookId];
+      if (sb) return sb;
+      const jsonUrl = coversJsonRef.current[bookId];
       if (jsonUrl && jsonUrl.length > 5) return jsonUrl;
-      const cached = finderCache[bookId];
+      const cached = finderCacheRef.current[bookId];
       if (cached && cached !== 'NONE' && cached.length > 5) return cached;
       return null;
     },
-    [supabaseMap, coversJson, finderCache]
+    []
   );
 
   const requestCover = useCallback(
     (bookId: string, title: string, author: string, fallbackSrc: string) => {
-      if (supabaseMap[bookId]) return;
-      if (coversJson[bookId]) return;
-      const cached = finderCache[bookId];
-      if (cached) return;
+      if (supabaseRef.current[bookId]) return;
+      if (coversJsonRef.current[bookId]) return;
+      if (finderCacheRef.current[bookId]) return;
       if (pendingRequests.has(bookId)) return;
 
       pendingRequests.add(bookId);
@@ -113,15 +114,16 @@ export function CoverProvider({ children }: { children: React.ReactNode }) {
       getBestCover(bookId, title, author, fallbackSrc).then((url) => {
         pendingRequests.delete(bookId);
         if (url) {
-          refreshFinderCache();
+          finderCacheRef.current = getFinderCache();
+          setVersion((v) => v + 1);
         }
       });
     },
-    [supabaseMap, coversJson, finderCache, refreshFinderCache]
+    []
   );
 
   return (
-    <CoverContext.Provider value={{ getCover, refreshCovers, requestCover }}>
+    <CoverContext.Provider value={{ getCover, refreshCovers, requestCover, version }}>
       {children}
     </CoverContext.Provider>
   );

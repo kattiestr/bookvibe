@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
@@ -131,34 +131,40 @@ export default function BookCover({
   style = {},
   onClick,
 }: Props) {
-  const { getCover, requestCover } = useCovers();
+  const { getCover, requestCover, version } = useCovers();
   const effectiveId = bookId || isbn;
+  const requestedRef = useRef(false);
 
-  function computeSrc(getC: typeof getCover): string {
+  function computeSrc(): string {
     if (effectiveId) {
-      const ctx = getC(effectiveId);
+      const ctx = getCover(effectiveId);
       if (ctx) return ctx;
     }
     if (src && src.length > 5) return src;
     return '';
   }
 
-  const [displaySrc, setDisplaySrc] = useState(() => computeSrc(getCover));
+  const [displaySrc, setDisplaySrc] = useState(computeSrc);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const next = computeSrc(getCover);
-    setDisplaySrc(next);
-    setFailed(false);
-  }, [src, bookId, isbn, getCover]);
+    const next = computeSrc();
+    if (next && next !== displaySrc) {
+      setDisplaySrc(next);
+      setFailed(false);
+    } else if (!next && displaySrc) {
+      setDisplaySrc('');
+    }
+  }, [src, bookId, isbn, version]);
 
   useEffect(() => {
+    if (requestedRef.current) return;
     if (!effectiveId || !author) return;
-    const ctx = getCover(effectiveId);
-    if (!ctx) {
-      requestCover(effectiveId, title, author, src);
-    }
-  }, [effectiveId, title, author, src, getCover, requestCover]);
+    if (getCover(effectiveId)) return;
+
+    requestedRef.current = true;
+    requestCover(effectiveId, title, author, src);
+  }, [effectiveId]);
 
   if (failed || !displaySrc) {
     return (
