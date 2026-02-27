@@ -26,7 +26,6 @@ type BookRow = {
   pages: number | null;
   year: number | null;
   description: string | null;
-  rating: number | null;
   series_number: number | null;
   series: { name: string } | null;
   book_tags: Array<{
@@ -48,7 +47,6 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       pages,
       year,
       description,
-      rating,
       series_number,
       series ( name ),
       book_tags ( tags ( slug, type ) ),
@@ -99,7 +97,6 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       pages: row.pages ?? undefined,
       year: row.year ?? undefined,
       description: row.description ?? undefined,
-      rating: row.rating ?? undefined,
       series: row.series?.name ?? undefined,
       seriesNumber: row.series_number ?? undefined,
       tropes: tropes as Book['tropes'],
