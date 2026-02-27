@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { Heart } from 'lucide-react';
+import { Star } from 'lucide-react';
 import type { Book } from '../data/books';
 import BookCover from './BookCover';
+import { useLibrary } from '../hooks/LibraryContext';
 
 interface Props {
   book: Book;
@@ -11,12 +12,13 @@ interface Props {
 
 const muted = '#5c5450';
 
-export default function BookCard({
-  book,
-  isFavorite,
-  onToggleFavorite,
-}: Props) {
+export default function BookCard({ book, isFavorite, onToggleFavorite }: Props) {
   const navigate = useNavigate();
+  const { library } = useLibrary();
+
+  const libraryEntry = library.find((b) => b.bookId === book.id);
+  const isRead = libraryEntry?.status === 'finished' || libraryEntry?.status === 'read-before';
+  const rating = libraryEntry?.rating || 0;
 
   return (
     <div
@@ -31,33 +33,27 @@ export default function BookCard({
         borderRadius="10px"
       />
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleFavorite();
-        }}
-        style={{
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
-          background: 'rgba(20,16,16,0.7)',
-          border: 'none',
-          borderRadius: '50%',
-          width: '28px',
-          height: '28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          backdropFilter: 'blur(4px)',
-        }}
-      >
-        <Heart
-          size={12}
-          fill={isFavorite ? '#e74c3c' : 'none'}
-          color={isFavorite ? '#e74c3c' : '#e2ddd5'}
-        />
-      </button>
+      {isRead && rating > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            background: 'rgba(20,16,16,0.7)',
+            borderRadius: '10px',
+            padding: '3px 6px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '3px',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <Star size={9} fill="#c9a84c" color="#c9a84c" />
+          <span style={{ fontSize: '10px', color: '#c9a84c', fontWeight: 700 }}>
+            {rating}
+          </span>
+        </div>
+      )}
 
       <p
         style={{
