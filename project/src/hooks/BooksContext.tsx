@@ -39,7 +39,7 @@ type CatalogBookRow = {
 
 async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | null> {
   const { data, error } = await client
-    .from('catalog_books')
+    .from('books')
     .select(`
       id,
       title,

@@ -112,7 +112,7 @@ export default function CoverChanger({
       }
 
       const { error } = await sb.client
-        .from('catalog_books')
+        .from('books')
         .update({ cover_url: imageUrl })
         .eq('id', String(bookId));
       if (error) throw error;
