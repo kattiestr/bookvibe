@@ -37,8 +37,11 @@ async function loadFromSupabase(): Promise<Record<string, string>> {
     const map: Record<string, string> = {};
     for (const row of data) {
       if (row.external_id && row.cover_path) {
-        map[String(row.external_id)] =
-          `${SUPABASE_URL}/storage/v1/object/public/covers/${row.cover_path}`;
+        const path = row.cover_path as string;
+        const isFullUrl = path.startsWith('http://') || path.startsWith('https://');
+        map[String(row.external_id)] = isFullUrl
+          ? path
+          : `${SUPABASE_URL}/storage/v1/object/public/covers/${path}`;
       }
     }
     return map;

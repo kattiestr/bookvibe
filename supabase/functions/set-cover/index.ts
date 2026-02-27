@@ -45,60 +45,51 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const imgResp = await fetch(String(imageUrl));
-    if (!imgResp.ok) {
-      return jsonResponse(
-        { ok: false, error: `Failed to fetch image: ${imgResp.status}` },
-        400
-      );
-    }
-
-    const contentType = imgResp.headers.get("content-type") || "image/jpeg";
-    const arrayBuffer = await imgResp.arrayBuffer();
-    const file = new Uint8Array(arrayBuffer);
-
-    const ext = contentType.includes("png") ? "png" : "jpg";
-    const coverPath = `defaults/${bookId}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("covers")
-      .upload(coverPath, file, { upsert: true, contentType });
-
-    if (uploadError) {
-      return jsonResponse(
-        { ok: false, error: `Upload failed: ${uploadError.message}` },
-        500
-      );
-    }
-
-    const { data: bookData, error: updateError } = await supabase
+    const { data: existing, error: selectError } = await supabase
       .from("books")
-      .update({ cover_path: coverPath, updated_at: new Date().toISOString() })
+      .select("id")
       .eq("external_id", String(bookId))
-      .select("id, external_id, cover_path")
       .maybeSingle();
 
-    if (updateError) {
+    if (selectError) {
       return jsonResponse(
-        { ok: false, error: `DB update failed: ${updateError.message}` },
+        { ok: false, error: `DB error: ${selectError.message}` },
         500
       );
     }
 
-    if (!bookData) {
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from("books")
+        .update({
+          cover_path: String(imageUrl),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("external_id", String(bookId));
+
+      if (updateError) {
+        return jsonResponse(
+          { ok: false, error: `Update failed: ${updateError.message}` },
+          500
+        );
+      }
+    } else {
       const { error: insertError } = await supabase
         .from("books")
-        .insert({ external_id: String(bookId), cover_path: coverPath });
+        .insert({
+          external_id: String(bookId),
+          cover_path: String(imageUrl),
+        });
 
       if (insertError) {
         return jsonResponse(
-          { ok: false, error: `DB insert failed: ${insertError.message}` },
+          { ok: false, error: `Insert failed: ${insertError.message}` },
           500
         );
       }
     }
 
-    return jsonResponse({ ok: true, cover_path: coverPath });
+    return jsonResponse({ ok: true, cover_path: imageUrl });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return jsonResponse({ ok: false, error: msg }, 500);
