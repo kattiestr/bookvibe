@@ -181,6 +181,15 @@ export default function BookCover({
     if (!effectiveId) return;
     const supabaseCover = getCover(effectiveId);
     if (!supabaseCover) return;
+    
+    // ВАЖНО: не перетирать нормальный src "плохим" значением из контекста.
+    // Если getCover вернул НЕ полный URL (нет http/storage), игнорируем.
+    const looksLikeRealUrl =
+      supabaseCover.startsWith('http') ||
+      supabaseCover.includes('/storage/v1/object/public/covers/');
+
+    if (!looksLikeRealUrl) return;
+
     setDisplaySrc(supabaseCover);
     setFailed(false);
   }, [getCover, effectiveId]);
