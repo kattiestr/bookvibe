@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -51,6 +52,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  const signInWithGoogle = async () => {
+    const { client } = getSupabase();
+    if (!client) return;
+    await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+  };
+
   const signOut = async () => {
     const { client } = getSupabase();
     if (!client) return;
@@ -58,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );
