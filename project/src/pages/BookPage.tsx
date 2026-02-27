@@ -460,7 +460,7 @@ export default function BookPage() {
                       <BookCover
                         src={seriesBook.cover}
                         title={seriesBook.title}
-                        isbn={seriesBook.id}
+                        bookId={seriesBook.id}
                         width={56}
                         height={80}
                         borderRadius="4px"
@@ -579,7 +579,7 @@ export default function BookPage() {
                   src={a.cover}
                   title={a.title}
                   author={a.author}
-                  isbn={a.id}
+                  bookId={a.id}
                   width={80}
                   height={112}
                   borderRadius="8px"
@@ -619,7 +619,7 @@ export default function BookPage() {
                   src={s.cover}
                   title={s.title}
                   author={s.author}
-                  isbn={s.id}
+                  bookId={s.id}
                   width={80}
                   height={112}
                   borderRadius="8px"
