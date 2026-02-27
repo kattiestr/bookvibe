@@ -10,7 +10,9 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const handleChangePassword = async () => {
+  const handleChangePassword = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setMessage(''); setError('');
     const { client } = getSupabase();
     if (!client) return;
@@ -19,7 +21,9 @@ export default function SettingsPage() {
     else { setMessage('Password updated!'); setNewPassword(''); }
   };
 
-  const handleChangeEmail = async () => {
+  const handleChangeEmail = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setMessage(''); setError('');
     const { client } = getSupabase();
     if (!client) return;
@@ -39,7 +43,6 @@ export default function SettingsPage() {
     }}>
       <h1 style={{ fontSize: '24px', marginBottom: '32px' }}>Settings</h1>
 
-      {/* Email пользователя */}
       <div style={{
         backgroundColor: '#1e1a1a',
         borderRadius: '12px',
@@ -66,6 +69,7 @@ export default function SettingsPage() {
           type="password"
           placeholder="New password"
           value={newPassword}
+          autoComplete="new-password"
           onChange={(e) => setNewPassword(e.target.value)}
           style={{
             width: '100%',
@@ -112,6 +116,7 @@ export default function SettingsPage() {
           type="email"
           placeholder="New email"
           value={newEmail}
+          autoComplete="off"
           onChange={(e) => setNewEmail(e.target.value)}
           style={{
             width: '100%',
