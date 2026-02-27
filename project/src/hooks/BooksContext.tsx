@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '../lib/supabaseClient';
 import { booksDatabase as staticBooks } from '../data/books';
 import type { Book } from '../data/books';
@@ -34,11 +35,8 @@ type CatalogBookRow = {
   catalog_book_vibes: Array<{ vibe_text: string; sort_order: number }>;
 };
 
-async function fetchBooksFromSupabase(): Promise<Book[] | null> {
-  const { client } = getSupabase() as { client: ReturnType<typeof import('@supabase/supabase-js').createClient> | null };
-  if (!client) return null;
-
-  const { data, error } = await (client as ReturnType<typeof import('@supabase/supabase-js').createClient>)
+async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | null> {
+  const { data, error } = await client
     .from('catalog_books')
     .select(`
       id,
@@ -119,10 +117,16 @@ export function BooksProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const result = getSupabase();
+    if (!result.client) {
+      setLoading(false);
+      return;
+    }
+    const client = result.client;
     let cancelled = false;
-    fetchBooksFromSupabase().then((result) => {
-      if (!cancelled && result && result.length > 0) {
-        setBooks(result);
+    fetchBooksFromSupabase(client).then((fetched) => {
+      if (!cancelled && fetched && fetched.length > 0) {
+        setBooks(fetched);
       }
       if (!cancelled) setLoading(false);
     });
