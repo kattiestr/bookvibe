@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Search, Moon, BookOpen, BarChart3 } from 'lucide-react';
+import { Home, Search, Moon, BookOpen, BarChart3, LogOut } from 'lucide-react';
+import { useAuth } from '../hooks/AuthContext';
 
 const accent = '#c4a07c';
 
@@ -12,6 +13,8 @@ const tabs = [
 ];
 
 export default function Navbar() {
+  const { signOut } = useAuth();
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50"
@@ -48,6 +51,33 @@ export default function Navbar() {
             </span>
           </NavLink>
         ))}
+
+        <button
+          onClick={signOut}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '3px',
+            padding: '2px 8px',
+            color: '#4a4440',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'color 0.3s',
+          }}
+        >
+          <LogOut size={18} strokeWidth={1.5} />
+          <span
+            style={{
+              fontSize: '8px',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase' as const,
+            }}
+          >
+            Exit
+          </span>
+        </button>
       </div>
     </nav>
   );
