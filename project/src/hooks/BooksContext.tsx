@@ -14,53 +14,47 @@ const BooksContext = createContext<BooksContextValue>({
   loading: false,
 });
 
-type CatalogBookRow = {
+type BookRow = {
   id: string;
   title: string;
   author: string;
   isbn: string;
-  cover_url: string | null;
+  cover_path: string | null;
   spice: number;
   pages: number | null;
   year: number | null;
   description: string | null;
-  rating: number | null;
-  series_id: string | null;
   series_number: number | null;
-  catalog_series: { name: string } | null;
-  catalog_book_tags: Array<{
-    catalog_tags: { slug: string; type: string } | null;
+  series: { name: string } | null;
+  book_tags: Array<{
+    tags: { slug: string; type: string } | null;
   }>;
-  catalog_book_similar: Array<{ similar_book_id: string }>;
-  catalog_book_vibes: Array<{ vibe_text: string; sort_order: number }>;
+  book_similar: Array<{ similar_book_id: string }>;
 };
 
 async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | null> {
   const { data, error } = await client
-    .from('catalog_books')
+    .from('books')
     .select(`
       id,
       title,
       author,
       isbn,
-      cover_url,
+      cover_path,
       spice,
       pages,
       year,
       description,
-      rating,
-      series_id,
       series_number,
-      catalog_series ( name ),
-      catalog_book_tags ( catalog_tags ( slug, type ) ),
-      catalog_book_similar ( similar_book_id ),
-      catalog_book_vibes ( vibe_text, sort_order )
+      series ( name ),
+      book_tags ( tags ( slug, type ) ),
+      book_similar ( similar_book_id )
     `)
-    .order('id');
+    .order('title');
 
   if (error || !data) return null;
 
-  const rows = data as unknown as CatalogBookRow[];
+  const rows = data as unknown as BookRow[];
 
   const idToTitle: Record<string, string> = {};
   for (const row of rows) {
@@ -71,35 +65,32 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
     const tropes: string[] = [];
     const genres: string[] = [];
     const mood: string[] = [];
+    const vibes: string[] = [];
 
-    for (const bt of row.catalog_book_tags) {
-      if (!bt.catalog_tags) continue;
-      const { slug, type } = bt.catalog_tags;
+    for (const bt of row.book_tags) {
+      if (!bt.tags) continue;
+      const { slug, type } = bt.tags;
       if (type === 'trope') tropes.push(slug);
       else if (type === 'genre') genres.push(slug);
       else if (type === 'mood') mood.push(slug);
+      else if (type === 'vibe') vibes.push(slug);
     }
 
-    const similar = row.catalog_book_similar
+    const similar = row.book_similar
       .map((s) => idToTitle[s.similar_book_id])
       .filter(Boolean);
-
-    const vibes = row.catalog_book_vibes
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((v) => v.vibe_text);
 
     const book: Book = {
       id: row.id,
       title: row.title,
       author: row.author,
       isbn: row.isbn,
-      cover: row.cover_url ?? `https://covers.openlibrary.org/b/isbn/${row.isbn}-L.jpg`,
+      cover: row.cover_path ?? `https://covers.openlibrary.org/b/isbn/${row.isbn}-L.jpg`,
       spice: (row.spice ?? 0) as Book['spice'],
       pages: row.pages ?? undefined,
       year: row.year ?? undefined,
       description: row.description ?? undefined,
-      rating: row.rating ?? undefined,
-      series: row.catalog_series?.name ?? undefined,
+      series: row.series?.name ?? undefined,
       seriesNumber: row.series_number ?? undefined,
       tropes: tropes as Book['tropes'],
       genres: genres as Book['genres'],
