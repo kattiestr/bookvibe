@@ -1,27 +1,25 @@
 import { useNavigate } from 'react-router-dom';
 import type { Book } from '../data/books';
 import BookCover from './BookCover';
-import { useLibrary } from '../hooks/LibraryContext';
-import { Star } from 'lucide-react';
 
 interface Props {
   book: Book;
-  isFavorite?: boolean;
-  onToggleFavorite?: () => void;
-  onClick?: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }
 
 const muted = '#5c5450';
 
-export default function BookCard({ book, onClick }: Props) {
+export default function BookCard({
+  book,
+  isFavorite,
+  onToggleFavorite,
+}: Props) {
   const navigate = useNavigate();
-  const { getBook } = useLibrary();
-  const libraryBook = getBook(book.id);
-  const rating = libraryBook?.rating || 0;
 
   return (
     <div
-      onClick={onClick || (() => navigate(`/book/${book.id}`))}
+      onClick={() => navigate(`/book/${book.id}`)}
       style={{ cursor: 'pointer', position: 'relative' }}
     >
       <BookCover
@@ -48,26 +46,14 @@ export default function BookCard({ book, onClick }: Props) {
       >
         {book.title}
       </p>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
-        {book.spice > 0 && (
-          <p style={{ fontSize: '10px' }}>
-            {'🌶️'.repeat(book.spice)}
-          </p>
-        )}
-        {rating > 0 && (
-          <span style={{
-            fontSize: '10px',
-            color: '#c9a84c',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '2px',
-          }}>
-            <Star size={8} fill="#c9a84c" color="#c9a84c" />
-            {rating}/10
-          </span>
-        )}
-      </div>
+      <p style={{ fontSize: '10px', color: muted, marginTop: '2px' }}>
+        {book.author}
+      </p>
+      {book.spice > 0 && (
+        <p style={{ fontSize: '10px', marginTop: '2px' }}>
+          {'🌶️'.repeat(book.spice)}
+        </p>
+      )}
     </div>
   );
 }
