@@ -5,7 +5,6 @@ import type { Book } from '../data/books';
 import BookCard from '../components/BookCard';
 import { useFavorites } from '../hooks/useFavorites';
 import { getTimeGreeting } from '../components/SassyToast';
-import { getSupabase } from '../lib/supabaseClient';
 
 const CATEGORIES = [
   { slug: 'dark-romance',      label: '🖤 Dark Romance',      type: 'genre' },
@@ -30,84 +29,22 @@ export default function HomePage() {
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
   const [sel, setSel] = useState<string | null>(null);
   const [greeting] = useState(() => getTimeGreeting());
-  const [supabaseStatus, setSupabaseStatus] = useState<{ ok: boolean; message: string } | null>(null);
-  const [supabaseTesting, setSupabaseTesting] = useState(false);
-
-  const handleTestSupabase = async () => {
-    setSupabaseTesting(true);
-    setSupabaseStatus(null);
-
-    const sb = getSupabase();
-    const urlPresent = !!import.meta.env.VITE_SUPABASE_URL;
-    const keyPresent = !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const envLine = `URL present: ${urlPresent} | KEY present: ${keyPresent}`;
-
-    if (!sb.client) {
-      setSupabaseStatus({ ok: false, message: `${envLine}\nENV missing — client not created.` });
-      setSupabaseTesting(false);
-      return;
-    }
-
-    const { data, error } = await sb.client.from('books').select('id').limit(1);
-    if (!error) {
-      setSupabaseStatus({ ok: true, message: `${envLine}\nConnected. Table "books" exists. Rows: ${data?.length ?? 0}` });
-    } else if (error.code === '42P01') {
-      setSupabaseStatus({ ok: true, message: `${envLine}\nConnected. Table "books" does not exist yet — that is OK.` });
-    } else {
-      setSupabaseStatus({ ok: false, message: `${envLine}\nError: ${error.message}` });
-    }
-    setSupabaseTesting(false);
-  };
 
   const books = sel
-    ? booksDatabase.filter((b) => b.tropes.includes(sel as any))
+    ? booksDatabase.filter((b) => {
+        const cat = CATEGORIES.find((c) => c.slug === sel);
+        if (!cat) return false;
+        if (cat.type === 'genre') return b.genres.includes(sel as any);
+        return b.tropes.includes(sel as any);
+      })
     : booksDatabase;
 
   const toggle = (book: Book) => {
     isFavorite(book.id) ? removeFavorite(book.id) : addFavorite(book);
   };
 
-  const label = (t: string) => t.split('-').join(' ');
-
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-28">
-      {/* Supabase test — TOP of page */}
-      <div style={{ marginBottom: 20 }}>
-        <button
-          onClick={handleTestSupabase}
-          disabled={supabaseTesting}
-          style={{
-            padding: '8px 20px',
-            borderRadius: 10,
-            border: '1px solid #2a2520',
-            background: '#1a1614',
-            color: accent,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: supabaseTesting ? 'not-allowed' : 'pointer',
-            opacity: supabaseTesting ? 0.6 : 1,
-          }}
-        >
-          {supabaseTesting ? 'Testing...' : 'Test Supabase'}
-        </button>
-        {supabaseStatus && (
-          <div
-            style={{
-              marginTop: 10,
-              padding: '10px 14px',
-              borderRadius: 10,
-              background: supabaseStatus.ok ? '#1a2a1a' : '#2a1a1a',
-              border: `1px solid ${supabaseStatus.ok ? '#2d5a2d' : '#5a2d2d'}`,
-              color: supabaseStatus.ok ? '#7ec87e' : '#e07070',
-              fontSize: 12,
-              lineHeight: 1.6,
-            }}
-          >
-            {supabaseStatus.message}
-          </div>
-        )}
-      </div>
-
       <h1
         style={{
           fontFamily: 'Playfair Display, serif',
@@ -182,7 +119,7 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* Trope filter */}
+      {/* Category filter */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-6 scrollbar-hide">
         <button
           onClick={() => setSel(null)}
@@ -202,10 +139,10 @@ export default function HomePage() {
         >
           All
         </button>
-        {TROPES.map((t) => (
+        {CATEGORIES.map((cat) => (
           <button
-            key={t}
-            onClick={() => setSel(sel === t ? null : t)}
+            key={cat.slug}
+            onClick={() => setSel(sel === cat.slug ? null : cat.slug)}
             style={{
               padding: '8px 20px',
               borderRadius: 20,
@@ -215,12 +152,12 @@ export default function HomePage() {
               whiteSpace: 'nowrap',
               cursor: 'pointer',
               border: 'none',
-              background: sel === t ? accent : bg2,
-              color: sel === t ? '#141010' : muted,
-              fontWeight: sel === t ? 700 : 400,
+              background: sel === cat.slug ? accent : bg2,
+              color: sel === cat.slug ? '#141010' : muted,
+              fontWeight: sel === cat.slug ? 700 : 400,
             }}
           >
-            {label(t)}
+            {cat.label}
           </button>
         ))}
       </div>
@@ -248,7 +185,7 @@ export default function HomePage() {
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
           <p style={{ fontSize: 32, marginBottom: 12 }}>📭</p>
           <p style={{ fontSize: 14, color: muted }}>
-            No books found for this trope yet
+            No books found for this category yet
           </p>
         </div>
       )}
