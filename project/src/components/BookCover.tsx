@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCovers } from '../hooks/CoverContext';
 
 interface Props {
@@ -163,6 +163,11 @@ export default function BookCover({
 
     return urls;
   }, [effectiveId, src, isbn, getCover]);
+
+  useEffect(() => {
+    setSourceIndex(0);
+    setAllFailed(false);
+  }, [sources[0]]);
 
   const handleError = () => {
     const next = sourceIndex + 1;

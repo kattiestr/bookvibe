@@ -59,8 +59,7 @@ async function loadCoversJson(): Promise<Record<string, string>> {
 }
 
 export function CoverProvider({ children }: { children: React.ReactNode }) {
-  const supabaseRef = useRef<Record<string, string>>({});
-  const coversJsonRef = useRef<Record<string, string>>({});
+  const [coversMap, setCoversMap] = useState<Record<string, string>>({});
   const [ready, setReady] = useState(false);
 
   const refreshCovers = useCallback(async () => {
@@ -68,8 +67,7 @@ export function CoverProvider({ children }: { children: React.ReactNode }) {
       loadFromSupabase(),
       loadCoversJson(),
     ]);
-    supabaseRef.current = sbMap;
-    coversJsonRef.current = jsonMap;
+    setCoversMap({ ...jsonMap, ...sbMap });
     setReady(true);
   }, []);
 
@@ -79,13 +77,10 @@ export function CoverProvider({ children }: { children: React.ReactNode }) {
 
   const getCover = useCallback(
     (bookId: string): string | null => {
-      const sb = supabaseRef.current[bookId];
-      if (sb) return sb;
-      const jsonUrl = coversJsonRef.current[bookId];
-      if (jsonUrl && jsonUrl.length > 5) return jsonUrl;
-      return null;
+      const url = coversMap[bookId];
+      return url && url.length > 5 ? url : null;
     },
-    []
+    [coversMap]
   );
 
   return (

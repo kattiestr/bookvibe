@@ -27,7 +27,7 @@ export default function BookCard({
         src={book.cover}
         title={book.title}
         author={book.author}
-        isbn={book.id}
+        bookId={book.id}
         borderRadius="10px"
       />
 
