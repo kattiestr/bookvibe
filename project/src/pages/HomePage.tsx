@@ -42,9 +42,6 @@ const books = sel
     })
   : shuffledBooks;
 
-  const toggle = (book: Book) => {
-    isFavorite(book.id) ? removeFavorite(book.id) : addFavorite(book);
-  };
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-28">
