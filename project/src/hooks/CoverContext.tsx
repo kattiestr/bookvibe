@@ -17,6 +17,7 @@ interface CoverContextType {
   refreshCovers: () => Promise<void>;
   requestCover: (bookId: string, title: string, author: string, fallbackSrc: string) => void;
   version: number;
+  ready: boolean;
 }
 
 const CoverContext = createContext<CoverContextType>({
@@ -24,6 +25,7 @@ const CoverContext = createContext<CoverContextType>({
   refreshCovers: async () => {},
   requestCover: () => {},
   version: 0,
+  ready: false,
 });
 
 function getFinderCache(): Record<string, string> {
@@ -73,6 +75,7 @@ export function CoverProvider({ children }: { children: React.ReactNode }) {
   const coversJsonRef = useRef<Record<string, string>>({});
   const finderCacheRef = useRef<Record<string, string>>(getFinderCache());
   const [version, setVersion] = useState(0);
+  const [ready, setReady] = useState(false);
 
   const refreshCovers = useCallback(async () => {
     const [sbMap, jsonMap] = await Promise.all([
@@ -82,6 +85,7 @@ export function CoverProvider({ children }: { children: React.ReactNode }) {
     supabaseRef.current = sbMap;
     coversJsonRef.current = jsonMap;
     finderCacheRef.current = getFinderCache();
+    setReady(true);
     setVersion((v) => v + 1);
   }, []);
 
@@ -106,7 +110,8 @@ export function CoverProvider({ children }: { children: React.ReactNode }) {
     (bookId: string, title: string, author: string, fallbackSrc: string) => {
       if (supabaseRef.current[bookId]) return;
       if (coversJsonRef.current[bookId]) return;
-      if (finderCacheRef.current[bookId]) return;
+      const cached = finderCacheRef.current[bookId];
+      if (cached && cached !== 'NONE' && cached.length > 5) return;
       if (pendingRequests.has(bookId)) return;
 
       pendingRequests.add(bookId);
@@ -123,7 +128,7 @@ export function CoverProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <CoverContext.Provider value={{ getCover, refreshCovers, requestCover, version }}>
+    <CoverContext.Provider value={{ getCover, refreshCovers, requestCover, version, ready }}>
       {children}
     </CoverContext.Provider>
   );
