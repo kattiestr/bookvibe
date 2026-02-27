@@ -106,23 +106,17 @@ export default function CoverChanger({
     try {
       const sb = getSupabase();
       if (!sb.client) {
-        setSaveMsg('Save failed: Supabase not configured');
+        setSaveMsg('Save failed: Supabase not configured (missing env vars)');
         setSaving(false);
         return;
       }
 
-      const resp = await fetch(`${sb.url}/functions/v1/set-cover`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sb.key}`,
-        },
-        body: JSON.stringify({ bookId, imageUrl }),
+      const { data, error } = await sb.client.functions.invoke('set-cover', {
+        body: { bookId, imageUrl },
       });
 
-      const data = await resp.json().catch(() => ({ error: 'Invalid response' }));
-      if (!resp.ok) {
-        setSaveMsg(`Save failed: ${data.error || resp.status}`);
+      if (error) {
+        setSaveMsg(`Save failed: ${error.message || String(error)}`);
         setSaving(false);
         return;
       }
