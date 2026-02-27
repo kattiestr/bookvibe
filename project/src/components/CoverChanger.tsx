@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Search, X, Check, Loader } from 'lucide-react';
 import { useCovers } from '../hooks/CoverContext';
+import { getSupabase } from '../lib/supabaseClient';
 
 interface Props {
   bookId: string;
@@ -12,9 +13,6 @@ interface Props {
 
 const accent = '#c4a882';
 const muted = '#5c5450';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export default function CoverChanger({
   bookId,
@@ -106,11 +104,18 @@ export default function CoverChanger({
     setSaveMsg('');
 
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/set-cover`, {
+      const sb = getSupabase();
+      if (!sb.client) {
+        setSaveMsg('Save failed: Supabase not configured');
+        setSaving(false);
+        return;
+      }
+
+      const resp = await fetch(`${sb.url}/functions/v1/set-cover`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${sb.key}`,
         },
         body: JSON.stringify({ bookId, imageUrl }),
       });

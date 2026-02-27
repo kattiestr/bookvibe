@@ -8,8 +8,6 @@ import React, {
 } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-
 interface CoverContextType {
   getCover: (bookId: string) => string | null;
   refreshCovers: () => Promise<void>;
@@ -24,7 +22,7 @@ const CoverContext = createContext<CoverContextType>({
 
 async function loadFromSupabase(): Promise<Record<string, string>> {
   const sb = getSupabase();
-  if (!sb.client || !SUPABASE_URL) return {};
+  if (!sb.client) return {};
 
   try {
     const { data, error } = await sb.client
@@ -41,7 +39,7 @@ async function loadFromSupabase(): Promise<Record<string, string>> {
         const isFullUrl = path.startsWith('http://') || path.startsWith('https://');
         map[String(row.external_id)] = isFullUrl
           ? path
-          : `${SUPABASE_URL}/storage/v1/object/public/covers/${path}`;
+          : `${sb.url}/storage/v1/object/public/covers/${path}`;
       }
     }
     return map;
