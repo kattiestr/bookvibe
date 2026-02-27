@@ -48,7 +48,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       series_number,
       series ( name ),
       book_tags ( tags ( slug, type ) ),
-      book_similar ( similar_book_id )
+      book_similar!book_similar_book_id_fkey ( similar_book_id )
     `)
     .order('title');
 
