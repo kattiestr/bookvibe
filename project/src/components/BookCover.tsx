@@ -156,31 +156,37 @@ export default function BookCover({
   getCoverRef.current = getCover;
 
   function pick(currentSrc: string, currentId: string | undefined): string {
-    // 1) src всегда главный
-    if (currentSrc && currentSrc.length > 5) return currentSrc;
-    
-    // 2) только если src пустой — локальная подмена
+    // 1) localStorage override has highest priority
     const local = getLocalOverride(bookId);
     if (local) return local;
 
-    // 3) только если src пустой — контекст
+    // 2) Supabase admin cover
     if (currentId) {
       const ctx = getCoverRef.current(currentId);
       if (ctx) return ctx;
     }
+
+    // 3) static src fallback
+    if (currentSrc && currentSrc.length > 5) return currentSrc;
     return '';
   }
 
   const [displaySrc, setDisplaySrc] = useState(() => pick(src, effectiveId));
   const [failed, setFailed] = useState(false);
-  const prevSrcRef = useRef(src);
 
   useEffect(() => {
     const next = pick(src, effectiveId);
     setDisplaySrc(next);
     setFailed(false);
-    prevSrcRef.current = src;
   }, [src, bookId, isbn]);
+
+  useEffect(() => {
+    if (!effectiveId) return;
+    const supabaseCover = getCover(effectiveId);
+    if (!supabaseCover) return;
+    setDisplaySrc(supabaseCover);
+    setFailed(false);
+  }, [getCover, effectiveId]);
 
   if (failed || !displaySrc) {
     return (
