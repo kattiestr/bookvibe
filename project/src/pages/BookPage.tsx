@@ -81,10 +81,10 @@ export default function BookPage() {
         <div style={{ width: '120px', flexShrink: 0 }}>
           <BookCover
             key={coverKey}
-            src={book.cover}
+            src={coverSrc}
             title={book.title}
             author={book.author}
-            isbn={book.id}
+            bookId={book.id}
             width={120}
             height={180}
             borderRadius="10px"
@@ -708,7 +708,8 @@ export default function BookPage() {
           bookId={book.id}
           bookTitle={book.title}
           bookAuthor={book.author}
-          onChanged={() => {
+          onChanged={(newUrl) => {
+            setCoverSrc(newUrl);
             setShowCoverChanger(false);
             setCoverKey((k) => k + 1);
           }}
