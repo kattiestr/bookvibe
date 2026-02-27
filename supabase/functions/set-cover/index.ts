@@ -61,10 +61,7 @@ Deno.serve(async (req: Request) => {
     if (existing) {
       const { error: updateError } = await supabase
         .from("books")
-        .update({
-          cover_path: String(imageUrl),
-          updated_at: new Date().toISOString(),
-        })
+        .update({ cover_path: String(imageUrl) })
         .eq("external_id", String(bookId));
 
       if (updateError) {

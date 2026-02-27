@@ -120,7 +120,7 @@ export default function CoverChanger({
       if (existing) {
         const { error } = await sb.client
           .from('books')
-          .update({ cover_path: imageUrl, updated_at: new Date().toISOString() })
+          .update({ cover_path: imageUrl })
           .eq('external_id', String(bookId));
         if (error) throw error;
       } else {
