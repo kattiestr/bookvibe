@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { Heart } from 'lucide-react';
 import type { Book } from '../data/books';
 import BookCover from './BookCover';
 
@@ -29,6 +30,34 @@ export default function BookCard({
         bookId={book.id}
         borderRadius="10px"
       />
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite();
+        }}
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          background: 'rgba(20,16,16,0.7)',
+          border: 'none',
+          borderRadius: '50%',
+          width: '28px',
+          height: '28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        <Heart
+          size={12}
+          fill={isFavorite ? '#e74c3c' : 'none'}
+          color={isFavorite ? '#e74c3c' : '#e2ddd5'}
+        />
+      </button>
 
       <p
         style={{
