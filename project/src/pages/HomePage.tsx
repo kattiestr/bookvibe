@@ -15,7 +15,6 @@ const CATEGORIES = [
   { slug: 'werewolf-romance',  label: '🐺 Shifters & Wolves', type: 'trope' },
   { slug: 'morally-grey',      label: '💀 Morally Grey',      type: 'trope' },
   { slug: 'slow-burn',         label: '🔥 Slow Burn',         type: 'trope' },
-  { slug: 'monster-romance',   label: '👹 Monster Romance',   type: 'trope' },
   { slug: 'mafia-romance',     label: '🗡️ Mafia',            type: 'genre' },
 ];
 
