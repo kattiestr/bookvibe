@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBooks } from '../hooks/BooksContext';
 import type { Book } from '../data/books';
@@ -29,19 +29,18 @@ export default function HomePage() {
   const [sel, setSel] = useState<string | null>(null);
   const [greeting] = useState(() => getTimeGreeting());
 
-  const shuffledBooks = useMemo(() => {
-  return [...booksDatabase].sort(() => Math.random() - 0.5);
-}, []);
+  const books = sel
+    ? booksDatabase.filter((b) => {
+        const cat = CATEGORIES.find((c) => c.slug === sel);
+        if (!cat) return false;
+        if (cat.type === 'genre') return b.genres.includes(sel as any);
+        return b.tropes.includes(sel as any);
+      })
+    : booksDatabase;
 
-const books = sel
-  ? shuffledBooks.filter((b) => {
-      const cat = CATEGORIES.find((c) => c.slug === sel);
-      if (!cat) return false;
-      if (cat.type === 'genre') return b.genres.includes(sel as any);
-      return b.tropes.includes(sel as any);
-    })
-  : shuffledBooks;
-
+  const toggle = (book: Book) => {
+    isFavorite(book.id) ? removeFavorite(book.id) : addFavorite(book);
+  };
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-28">
@@ -162,7 +161,7 @@ const books = sel
         ))}
       </div>
 
-      {/* Book grid - 3 колонки */}
+      {/* Book grid */}
       <div
         style={{
           display: 'grid',
@@ -176,7 +175,6 @@ const books = sel
             book={book}
             isFavorite={isFavorite(book.id)}
             onToggleFavorite={() => toggle(book)}
-            onClick={() => navigate(`/book/${book.id}`)}
           />
         ))}
       </div>
