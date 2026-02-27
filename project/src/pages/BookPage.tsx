@@ -37,7 +37,11 @@ export default function BookPage() {
 
   const coverSrc = overrideSrc ?? book.cover;
 
-  const similar = booksDatabase.filter((b) => book.similar?.includes(b.title));
+  const similar = booksDatabase.filter(
+  (b) =>
+    book.similar?.includes(b.title) &&
+    !(book.series && b.series === book.series)
+);
   const fav = isFavorite(book.id);
   const inLib = isInLibrary(book.id);
 
