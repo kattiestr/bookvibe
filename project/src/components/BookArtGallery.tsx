@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { ExternalLink, Plus, X, ImageIcon } from 'lucide-react';
 
 const accent = '#c4a07c';
 const muted = '#5c5450';
@@ -93,7 +94,6 @@ export default function BookArtGallery({
           textAlign: 'center',
         }}
       >
-
         <h3
           style={{
             fontFamily: 'Playfair Display, serif',
@@ -158,7 +158,8 @@ export default function BookArtGallery({
             gap: '8px',
           }}
         >
-          <ImageIcon size={14} />I don't mind spoilers — show me!
+          <ImageIcon size={14} />
+          I don't mind spoilers — show me!
         </button>
 
         <p
@@ -175,7 +176,6 @@ export default function BookArtGallery({
     );
   }
 
-  // Unlocked — show gallery
   return (
     <div
       style={{
@@ -198,7 +198,6 @@ export default function BookArtGallery({
         🎨 Fan Art & Aesthetics
       </h3>
 
-      {/* Pinterest buttons */}
       <div
         style={{
           display: 'flex',
@@ -257,7 +256,6 @@ export default function BookArtGallery({
         )}
       </div>
 
-      {/* Saved images */}
       {images.length > 0 && (
         <div style={{ marginBottom: '12px' }}>
           <p
@@ -327,7 +325,6 @@ export default function BookArtGallery({
         </div>
       )}
 
-      {/* Add image button */}
       <button
         onClick={handleAddImage}
         style={{
@@ -357,7 +354,6 @@ export default function BookArtGallery({
         style={{ display: 'none' }}
       />
 
-      {/* Lightbox */}
       {viewingImage && (
         <div
           onClick={() => setViewingImage(null)}
@@ -404,7 +400,6 @@ export default function BookArtGallery({
         </div>
       )}
 
-      {/* Lock button */}
       <button
         onClick={() => setUnlocked(false)}
         style={{
