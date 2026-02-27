@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/AuthContext';
 
 export default function AuthPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,6 +50,34 @@ export default function AuthPage() {
         <p style={{ color: '#9e9a94', textAlign: 'center', marginBottom: '32px' }}>
           {isLogin ? 'Welcome back!' : 'Create your account'}
         </p>
+
+        {/* Google кнопка */}
+        <button
+          onClick={signInWithGoogle}
+          style={{
+            width: '100%',
+            padding: '12px',
+            backgroundColor: '#ffffff',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#141010',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}
+        >
+          <img src="https://www.google.com/favicon.ico" width="18" height="18" />
+          Continue with Google
+        </button>
+
+        <div style={{ textAlign: 'center', color: '#9e9a94', marginBottom: '16px', fontSize: '14px' }}>
+          or
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px' }}>
