@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { getSupabase } from '../lib/supabaseClient';
 
 export type BookFormat = 'paper' | 'ebook' | 'audio';
 export type ReadingStatus =
@@ -40,12 +41,13 @@ export interface LibraryBook {
   dateAdded: string;
   dateStarted: string | null;
   dateFinished: string | null;
-  dateReadBefore: string | null; // "2024-03" or "2023-11" — month/year when read in the past
+  dateReadBefore: string | null;
   sessions: ReadingSession[];
 }
 
 interface LibraryContextType {
   library: LibraryBook[];
+  loading: boolean;
   addToLibrary: (book: {
     id: string;
     title: string;
@@ -55,12 +57,12 @@ interface LibraryContextType {
     status?: ReadingStatus;
     series?: string;
     seriesNumber?: number;
-  }) => void;
-  removeFromLibrary: (bookId: string) => void;
+  }) => Promise<void>;
+  removeFromLibrary: (bookId: string) => Promise<void>;
   isInLibrary: (bookId: string) => boolean;
   getBook: (bookId: string) => LibraryBook | undefined;
-  updateBook: (bookId: string, updates: Partial<LibraryBook>) => void;
-  addSession: (bookId: string, session: ReadingSession) => void;
+  updateBook: (bookId: string, updates: Partial<LibraryBook>) => Promise<void>;
+  addSession: (bookId: string, session: ReadingSession) => Promise<void>;
   getStats: (bookId: string) => Stats | null;
 }
 
@@ -81,25 +83,112 @@ export interface Stats {
 }
 
 const LibraryContext = createContext<LibraryContextType | null>(null);
-const STORAGE_KEY = 'bookvibe-library';
 
-function loadLibrary(): LibraryBook[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+function toSupabase(book: LibraryBook, userId: string) {
+  return {
+    user_id: userId,
+    book_id: book.bookId,
+    title: book.title,
+    author: book.author,
+    cover: book.cover,
+    series: book.series ?? null,
+    series_number: book.seriesNumber ?? null,
+    total_pages: book.totalPages,
+    current_page: book.currentPage,
+    status: book.status,
+    format: book.format,
+    language: book.language,
+    rating: book.rating,
+    notes: book.notes,
+    vibe: book.vibe,
+    date_added: book.dateAdded,
+    date_started: book.dateStarted,
+    date_finished: book.dateFinished,
+    date_read_before: book.dateReadBefore,
+    sessions: book.sessions,
+  };
+}
+
+function fromSupabase(row: any): LibraryBook {
+  return {
+    bookId: row.book_id,
+    title: row.title,
+    author: row.author,
+    cover: row.cover,
+    series: row.series ?? undefined,
+    seriesNumber: row.series_number ?? undefined,
+    totalPages: row.total_pages,
+    currentPage: row.current_page,
+    status: row.status,
+    format: row.format,
+    language: row.language,
+    rating: row.rating,
+    notes: row.notes,
+    vibe: row.vibe,
+    dateAdded: row.date_added,
+    dateStarted: row.date_started,
+    dateFinished: row.date_finished,
+    dateReadBefore: row.date_read_before,
+    sessions: row.sessions ?? [],
+  };
 }
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
-  const [library, setLibrary] = useState<LibraryBook[]>(loadLibrary);
+  const [library, setLibrary] = useState<LibraryBook[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
+  // Получаем пользователя и загружаем его библиотеку
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
-  }, [library]);
+    const supabaseResult = getSupabase();
+    if (!supabaseResult.client) return;
+    const client = supabaseResult.client;
 
-  const addToLibrary = (book: {
+    client.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null;
+      setUserId(uid);
+
+      if (!uid) {
+        setLoading(false);
+        return;
+      }
+
+      client
+        .from('user_library')
+        .select('*')
+        .eq('user_id', uid)
+        .then(({ data: rows }) => {
+          if (rows) setLibrary(rows.map(fromSupabase));
+          setLoading(false);
+        });
+    });
+
+    // Слушаем смену пользователя
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      const uid = session?.user?.id ?? null;
+      setUserId(uid);
+
+      if (!uid) {
+        setLibrary([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      client
+        .from('user_library')
+        .select('*')
+        .eq('user_id', uid)
+        .then(({ data: rows }) => {
+          if (rows) setLibrary(rows.map(fromSupabase));
+          setLoading(false);
+        });
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const addToLibrary = async (book: {
     id: string;
     title: string;
     author: string;
@@ -109,110 +198,149 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     series?: string;
     seriesNumber?: number;
   }) => {
-    setLibrary((prev) => {
-      if (prev.find((b) => b.bookId === book.id)) return prev;
-      return [
-        ...prev,
-        {
-          bookId: book.id,
-          title: book.title,
-          author: book.author,
-          cover: book.cover,
-          series: book.series,
-          seriesNumber: book.seriesNumber,
-          totalPages: book.pages || 300,
-          currentPage: 0,
-          status: book.status || ('want-to-read' as ReadingStatus),
-          format: 'paper' as BookFormat,
-          language: 'en' as BookLanguage,
-          rating: 0,
-          notes: '',
-          vibe: 'default',
-          dateAdded: new Date().toISOString(),
-          dateStarted: null,
-          dateFinished: null,
-          dateReadBefore: null,
-          sessions: [],
-        },
-      ];
-    });
+    if (!userId) return;
+    const supabaseResult = getSupabase();
+    if (!supabaseResult.client) return;
+
+    if (library.find((b) => b.bookId === book.id)) return;
+
+    const newBook: LibraryBook = {
+      bookId: book.id,
+      title: book.title,
+      author: book.author,
+      cover: book.cover,
+      series: book.series,
+      seriesNumber: book.seriesNumber,
+      totalPages: book.pages || 300,
+      currentPage: 0,
+      status: book.status || 'want-to-read',
+      format: 'paper',
+      language: 'en',
+      rating: 0,
+      notes: '',
+      vibe: 'default',
+      dateAdded: new Date().toISOString(),
+      dateStarted: null,
+      dateFinished: null,
+      dateReadBefore: null,
+      sessions: [],
+    };
+
+    const { error } = await supabaseResult.client
+      .from('user_library')
+      .insert(toSupabase(newBook, userId));
+
+    if (!error) {
+      setLibrary((prev) => [...prev, newBook]);
+    }
   };
 
-  const removeFromLibrary = (bookId: string) => {
-    setLibrary((prev) => prev.filter((b) => b.bookId !== bookId));
+  const removeFromLibrary = async (bookId: string) => {
+    if (!userId) return;
+    const supabaseResult = getSupabase();
+    if (!supabaseResult.client) return;
+
+    const { error } = await supabaseResult.client
+      .from('user_library')
+      .delete()
+      .eq('user_id', userId)
+      .eq('book_id', bookId);
+
+    if (!error) {
+      setLibrary((prev) => prev.filter((b) => b.bookId !== bookId));
+    }
   };
 
   const isInLibrary = (bookId: string) =>
     library.some((b) => b.bookId === bookId);
 
-  const getBook = (bookId: string) => library.find((b) => b.bookId === bookId);
+  const getBook = (bookId: string) =>
+    library.find((b) => b.bookId === bookId);
 
-  const updateBook = (bookId: string, updates: Partial<LibraryBook>) => {
-    setLibrary((prev) =>
-      prev.map((b) => {
-        if (b.bookId !== bookId) return b;
-        const updated = { ...b, ...updates };
+  const updateBook = async (bookId: string, updates: Partial<LibraryBook>) => {
+    if (!userId) return;
+    const supabaseResult = getSupabase();
+    if (!supabaseResult.client) return;
 
-        if (updates.status === 'reading' && !b.dateStarted) {
-          updated.dateStarted = new Date().toISOString();
-        }
+    const book = library.find((b) => b.bookId === bookId);
+    if (!book) return;
 
-        if (updates.status === 'finished' && b.status !== 'finished') {
-          updated.dateFinished = new Date().toISOString();
-          updated.currentPage = b.totalPages;
-        }
+    const updated = { ...book, ...updates };
 
-        if (updates.status === 'read-before' && b.status !== 'read-before') {
-          // Don't set dateFinished to now — user will set dateReadBefore manually
-          updated.currentPage = b.totalPages;
-          if (!updated.dateReadBefore) {
-            updated.dateReadBefore = null; // user should set this
-          }
-        }
+    if (updates.status === 'reading' && !book.dateStarted) {
+      updated.dateStarted = new Date().toISOString();
+    }
 
-        if (updates.status) {
-          const wasComplete =
-            b.status === 'finished' || b.status === 'read-before';
-          const isNoLongerComplete =
-            updates.status !== 'finished' && updates.status !== 'read-before';
+    if (updates.status === 'finished' && book.status !== 'finished') {
+      updated.dateFinished = new Date().toISOString();
+      updated.currentPage = book.totalPages;
+    }
 
-          if (wasComplete && isNoLongerComplete) {
-            const lastSession = b.sessions[b.sessions.length - 1];
-            if (lastSession) {
-              updated.currentPage = lastSession.endPage;
-            } else {
-              updated.currentPage = 0;
-            }
-            updated.dateFinished = null;
-            updated.dateReadBefore = null;
-          }
-        }
+    if (updates.status === 'read-before' && book.status !== 'read-before') {
+      updated.currentPage = book.totalPages;
+      if (!updated.dateReadBefore) {
+        updated.dateReadBefore = null;
+      }
+    }
 
-        return updated;
-      })
-    );
+    if (updates.status) {
+      const wasComplete = book.status === 'finished' || book.status === 'read-before';
+      const isNoLongerComplete =
+        updates.status !== 'finished' && updates.status !== 'read-before';
+
+      if (wasComplete && isNoLongerComplete) {
+        const lastSession = book.sessions[book.sessions.length - 1];
+        updated.currentPage = lastSession ? lastSession.endPage : 0;
+        updated.dateFinished = null;
+        updated.dateReadBefore = null;
+      }
+    }
+
+    const { error } = await supabaseResult.client
+      .from('user_library')
+      .update(toSupabase(updated, userId))
+      .eq('user_id', userId)
+      .eq('book_id', bookId);
+
+    if (!error) {
+      setLibrary((prev) =>
+        prev.map((b) => (b.bookId === bookId ? updated : b))
+      );
+    }
   };
 
-  const addSession = (bookId: string, session: ReadingSession) => {
-    setLibrary((prev) =>
-      prev.map((b) => {
-        if (b.bookId !== bookId) return b;
-        return {
-          ...b,
-          sessions: [...b.sessions, session],
-          currentPage: session.endPage,
-          status:
-            session.endPage >= b.totalPages
-              ? ('finished' as ReadingStatus)
-              : ('reading' as ReadingStatus),
-          dateStarted: b.dateStarted || new Date().toISOString(),
-          dateFinished:
-            session.endPage >= b.totalPages
-              ? new Date().toISOString()
-              : b.dateFinished,
-        };
-      })
-    );
+  const addSession = async (bookId: string, session: ReadingSession) => {
+    if (!userId) return;
+    const supabaseResult = getSupabase();
+    if (!supabaseResult.client) return;
+
+    const book = library.find((b) => b.bookId === bookId);
+    if (!book) return;
+
+    const updated: LibraryBook = {
+      ...book,
+      sessions: [...book.sessions, session],
+      currentPage: session.endPage,
+      status:
+        session.endPage >= book.totalPages ? 'finished' : 'reading',
+      dateStarted: book.dateStarted || new Date().toISOString(),
+      dateFinished:
+        session.endPage >= book.totalPages
+          ? new Date().toISOString()
+          : book.dateFinished,
+    };
+
+    const { error } = await supabaseResult.client
+      .from('user_library')
+      .update(toSupabase(updated, userId))
+      .eq('user_id', userId)
+      .eq('book_id', bookId);
+
+    if (!error) {
+      setLibrary((prev) =>
+        prev.map((b) => (b.bookId === bookId ? updated : b))
+      );
+    }
   };
 
   const getStats = (bookId: string): Stats | null => {
@@ -220,16 +348,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (!book) return null;
 
     const totalSeconds = book.sessions.reduce((sum, s) => sum + s.duration, 0);
-    const totalPagesRead = book.sessions.reduce(
-      (sum, s) => sum + s.pagesRead,
-      0
-    );
+    const totalPagesRead = book.sessions.reduce((sum, s) => sum + s.pagesRead, 0);
     const totalMinutes = totalSeconds / 60;
     const totalHours = totalMinutes / 60;
     const pagesPerMinute = totalMinutes > 0 ? totalPagesRead / totalMinutes : 0;
     const pagesPerHour = totalHours > 0 ? totalPagesRead / totalHours : 0;
-    const minutesPerPage =
-      totalPagesRead > 0 ? totalMinutes / totalPagesRead : 0;
+    const minutesPerPage = totalPagesRead > 0 ? totalMinutes / totalPagesRead : 0;
     const pagesLeft = book.totalPages - book.currentPage;
     const minutesLeft = minutesPerPage > 0 ? pagesLeft * minutesPerPage : 0;
     const hoursLeft = minutesLeft / 60;
@@ -261,6 +385,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     <LibraryContext.Provider
       value={{
         library,
+        loading,
         addToLibrary,
         removeFromLibrary,
         isInLibrary,
