@@ -33,9 +33,7 @@ function hashColor(title: string): string {
   return COLORS[Math.abs(h) % COLORS.length];
 }
 
-export function saveCustomCover(_bookId: string, _url: string) {
-  // No-op: saving handled via CoverChanger → API → Supabase
-}
+export function saveCustomCover(_bookId: string, _url: string) {}
 
 function Placeholder({
   title,
@@ -136,20 +134,20 @@ export default function BookCover({
   const { getCover } = useCovers();
   const effectiveId = bookId || isbn;
 
-  function pick(): string {
+  function computeSrc(getC: typeof getCover): string {
     if (effectiveId) {
-      const ctx = getCover(effectiveId);
+      const ctx = getC(effectiveId);
       if (ctx) return ctx;
     }
     if (src && src.length > 5) return src;
     return '';
   }
 
-  const [displaySrc, setDisplaySrc] = useState(() => pick());
+  const [displaySrc, setDisplaySrc] = useState(() => computeSrc(getCover));
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const next = pick();
+    const next = computeSrc(getCover);
     setDisplaySrc(next);
     setFailed(false);
   }, [src, bookId, isbn, getCover]);
