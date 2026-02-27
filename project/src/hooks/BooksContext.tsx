@@ -21,7 +21,7 @@ type CatalogBookRow = {
   title: string;
   author: string;
   isbn: string;
-  cover_url: string | null;
+  cover_path: string | null;
   spice: number;
   pages: number | null;
   year: number | null;
@@ -34,7 +34,7 @@ type CatalogBookRow = {
     catalog_tags: { slug: string; type: string } | null;
   }>;
   catalog_book_similar: Array<{ similar_book_id: string }>;
-  catalog_book_vibes: Array<{ vibe_text: string; sort_order: number }>;
+  book_tags: Array<{ vibe_text: string; sort_order: number }>;
 };
 
 async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | null> {
@@ -45,7 +45,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       title,
       author,
       isbn,
-      cover_url,
+      cover_path,
       spice,
       pages,
       year,
@@ -56,7 +56,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       catalog_series ( name ),
       catalog_book_tags ( catalog_tags ( slug, type ) ),
       catalog_book_similar ( similar_book_id ),
-      catalog_book_vibes ( vibe_text, sort_order )
+      book_tags ( vibe_text, sort_order )
     `)
     .order('id');
 
@@ -86,7 +86,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       .map((s) => idToTitle[s.similar_book_id])
       .filter(Boolean);
 
-    const vibes = row.catalog_book_vibes
+    const vibes = row.book_tags
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((v) => v.vibe_text);
 
@@ -95,8 +95,8 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       title: row.title,
       author: row.author,
       isbn: row.isbn,
-      cover: row.cover_url && row.cover_url.length > 0
-        ? row.cover_url
+      cover: row.cover_path && row.cover_path.length > 0
+        ? row.cover_path
         : `https://covers.openlibrary.org/b/isbn/${row.isbn}-L.jpg`,
       spice: (row.spice ?? 0) as Book['spice'],
       pages: row.pages ?? undefined,
