@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { booksDatabase } from '../api/books';
+import { useBooks } from '../hooks/BooksContext';
 import type { Book } from '../data/books';
 import BookCover from '../components/BookCover';
 import { ArrowLeft, ArrowRight, Star, BookOpen, Search } from 'lucide-react';
@@ -249,7 +249,7 @@ const MODIFIERS: Modifier[] = [
   },
 ];
 
-function findRecommendations(source: Book, mods: Modifier[]): Book[] {
+function findRecommendations(source: Book, mods: Modifier[], booksDatabase: Book[]): Book[] {
   return booksDatabase
     .filter((b) => b.id !== source.id)
     .map((candidate) => {
@@ -286,6 +286,7 @@ function findRecommendations(source: Book, mods: Modifier[]): Book[] {
 }
 
 export default function IfYouLikedPage() {
+  const { books: booksDatabase } = useBooks();
   const navigate = useNavigate();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [selectedMods, setSelectedMods] = useState<Set<string>>(new Set());
@@ -308,7 +309,7 @@ export default function IfYouLikedPage() {
 
   const recommendations = useMemo(() => {
     if (!selectedBook || activeMods.length === 0) return [];
-    return findRecommendations(selectedBook, activeMods);
+    return findRecommendations(selectedBook, activeMods, booksDatabase);
   }, [selectedBook, selectedMods]);
 
   const toggleMod = (id: string) => {

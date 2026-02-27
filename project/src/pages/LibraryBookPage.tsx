@@ -22,7 +22,7 @@ import {
   Camera,
 } from 'lucide-react';
 
-import { booksDatabase } from '../data/books';
+import { useBooks } from '../hooks/BooksContext';
 import BookCover from '../components/BookCover';
 import CoverChanger from '../components/CoverChanger';
 
@@ -51,6 +51,7 @@ const LANGUAGES: { key: BookLanguage; label: string; emoji: string }[] = [
 ];
 
 export default function LibraryBookPage() {
+  const { books: booksDatabase } = useBooks();
   const { id } = useParams();
   const navigate = useNavigate();
   const { getBook, updateBook, addSession, getStats, removeFromLibrary } =

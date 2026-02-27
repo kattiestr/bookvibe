@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { booksDatabase } from '../data/books';
+import { useBooks } from '../hooks/BooksContext';
 import { seriesDatabase } from '../data/series';
 import BookCover from '../components/BookCover';
 import { ArrowLeft } from 'lucide-react';
@@ -8,6 +8,7 @@ const accent = '#c4a07c';
 const muted = '#5c5450';
 
 export default function AuthorPage() {
+  const { books: booksDatabase } = useBooks();
   const { name } = useParams();
   const navigate = useNavigate();
 

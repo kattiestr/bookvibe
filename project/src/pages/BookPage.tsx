@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { booksDatabase } from '../api/books';
+import { useBooks } from '../hooks/BooksContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { useLibrary } from '../hooks/LibraryContext';
 import { seriesDatabase } from '../data/series';
@@ -13,6 +13,7 @@ const accent = '#c4a07c';
 const muted = '#5c5450';
 
 export default function BookPage() {
+  const { books: booksDatabase } = useBooks();
   const { id } = useParams();
   const navigate = useNavigate();
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();

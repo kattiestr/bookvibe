@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLibrary } from '../hooks/LibraryContext';
-import { booksDatabase } from '../api/books';
+import { useBooks } from '../hooks/BooksContext';
 import BookCover from '../components/BookCover';
 import {
   RotateCcw,
@@ -31,6 +31,7 @@ const TBR_JOKES = [
 type Source = 'my-tbr' | 'all-new';
 
 export default function SpinPage() {
+  const { books: booksDatabase } = useBooks();
   const navigate = useNavigate();
   const { library, addToLibrary } = useLibrary();
   const [result, setResult] = useState<{

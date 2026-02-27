@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { booksDatabase, searchBooksLocal } from '../api/books';
+import { useBooks } from '../hooks/BooksContext';
+import { searchBooksLocal } from '../api/books';
 import type { Book } from '../data/books';
 import BookCard from '../components/BookCard';
 import { useFavorites } from '../hooks/useFavorites';
@@ -19,6 +20,7 @@ const SUGGESTIONS = [
 ];
 
 export default function SearchPage() {
+  const { books: booksDatabase } = useBooks();
   const [query, setQuery] = useState('');
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
 

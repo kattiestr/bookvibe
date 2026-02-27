@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LibraryProvider } from './hooks/LibraryContext';
 import { CoverProvider } from './hooks/CoverContext';
+import { BooksProvider } from './hooks/BooksContext';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -20,6 +21,7 @@ import NYTBookPage from './pages/NYTBookPage';
 export default function App() {
   return (
     <BrowserRouter>
+      <BooksProvider>
       <CoverProvider>
         <LibraryProvider>
           <div
@@ -49,6 +51,7 @@ export default function App() {
           </div>
         </LibraryProvider>
       </CoverProvider>
+      </BooksProvider>
     </BrowserRouter>
   );
 }

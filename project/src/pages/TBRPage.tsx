@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { booksDatabase } from '../data/books';
+import { useBooks } from '../hooks/BooksContext';
 import { useLibrary } from '../hooks/LibraryContext';
 import BookCover from '../components/BookCover';
 import { Shuffle, Plus, X, Sparkles, ArrowLeft, Trash2 } from 'lucide-react';
@@ -122,6 +122,7 @@ const PROMPTS = [
 ];
 
 export default function TBRPage() {
+  const { books: booksDatabase } = useBooks();
   const navigate = useNavigate();
   const { library } = useLibrary();
   const [period, setPeriod] = useState<Period>('week');

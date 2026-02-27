@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLibrary } from '../hooks/LibraryContext';
 import type { ReadingStatus } from '../hooks/LibraryContext';
-import { booksDatabase } from '../api/books';
+import { useBooks } from '../hooks/BooksContext';
 import { seriesDatabase } from '../data/series';
 import { BookOpen, Clock, Star } from 'lucide-react';
 import BookCover from '../components/BookCover';
@@ -66,6 +66,7 @@ function getTBRInfo(): { period: string; date: string; count: number } | null {
 }
 
 export default function LibraryPage() {
+  const { books: booksDatabase } = useBooks();
   const navigate = useNavigate();
   const { library, getStats, updateBook } = useLibrary();
   const [filter, setFilter] = useState<FilterKey>('all');

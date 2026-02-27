@@ -1,5 +1,6 @@
 export type { Book, Trope, Genre, Mood } from '../data/books';
 export { booksDatabase } from '../data/books';
+export { useBooks } from '../hooks/BooksContext';
 
 import type { Book } from '../data/books';
 import { getSupabase } from '../lib/supabaseClient';

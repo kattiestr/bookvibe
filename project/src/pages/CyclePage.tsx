@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { booksDatabase } from '../api/books';
+import { useBooks } from '../hooks/BooksContext';
 import type { Book } from '../data/books';
 import BookCard from '../components/BookCard';
 import { useFavorites } from '../hooks/useFavorites';
@@ -160,6 +160,7 @@ function getPhaseBooks(phase: Phase, allBooks: Book[]): Book[] {
 }
 
 export default function CyclePage() {
+  const { books: booksDatabase } = useBooks();
   const [selectedPhase, setSelectedPhase] = useState<Phase | null>(null);
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
 

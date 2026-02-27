@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { booksDatabase } from '../api/books';
+import { useBooks } from '../hooks/BooksContext';
 import type { Book } from '../data/books';
 import BookCard from '../components/BookCard';
 import { useFavorites } from '../hooks/useFavorites';
@@ -33,6 +33,7 @@ const muted = '#5c5450';
 const bg2 = '#1e1a18';
 
 export default function HomePage() {
+  const { books: booksDatabase } = useBooks();
   const navigate = useNavigate();
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
   const [sel, setSel] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { booksDatabase } from '../api/books';
+import { useBooks } from '../hooks/BooksContext';
 import { useLibrary } from '../hooks/LibraryContext';
 import type { Book } from '../data/books';
 import { Star, RotateCcw, BookOpen, Plus, Library } from 'lucide-react';
@@ -282,6 +282,7 @@ function scoreBook(
 }
 
 export default function QuizPage() {
+  const { books: booksDatabase } = useBooks();
   const navigate = useNavigate();
   const { library, addToLibrary } = useLibrary();
   const [step, setStep] = useState(0);
