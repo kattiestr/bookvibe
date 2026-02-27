@@ -111,24 +111,11 @@ export default function CoverChanger({
         return;
       }
 
-      const { data: existing } = await sb.client
-        .from('books')
-        .select('id')
-        .eq('external_id', String(bookId))
-        .maybeSingle();
-
-      if (existing) {
-        const { error } = await sb.client
-          .from('books')
-          .update({ cover_path: imageUrl })
-          .eq('external_id', String(bookId));
-        if (error) throw error;
-      } else {
-        const { error } = await sb.client
-          .from('books')
-          .insert({ external_id: String(bookId), cover_path: imageUrl });
-        if (error) throw error;
-      }
+      const { error } = await sb.client
+        .from('catalog_books')
+        .update({ cover_url: imageUrl })
+        .eq('id', String(bookId));
+      if (error) throw error;
 
       setSaveMsg('Saved!');
       setSaving(false);

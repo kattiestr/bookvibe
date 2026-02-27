@@ -1,12 +1,5 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  useRef,
-} from 'react';
-import { getSupabase } from '../lib/supabaseClient';
+import React, { createContext, useContext, useCallback } from 'react';
+import { useBooks } from './BooksContext';
 
 interface CoverContextType {
   getCover: (bookId: string) => string | null;
@@ -17,74 +10,20 @@ interface CoverContextType {
 const CoverContext = createContext<CoverContextType>({
   getCover: () => null,
   refreshCovers: async () => {},
-  ready: false,
+  ready: true,
 });
 
-async function loadFromSupabase(): Promise<Record<string, string>> {
-  const sb = getSupabase();
-  if (!sb.client) return {};
-
-  try {
-    const { data, error } = await sb.client
-      .from('books')
-      .select('external_id, cover_path')
-      .not('cover_path', 'is', null);
-
-    if (error || !data) return {};
-
-    const map: Record<string, string> = {};
-    for (const row of data) {
-      if (row.external_id && row.cover_path) {
-        const path = row.cover_path as string;
-        const isFullUrl = path.startsWith('http://') || path.startsWith('https://');
-        map[String(row.external_id)] = isFullUrl
-          ? path
-          : `${sb.url}/storage/v1/object/public/covers/${path}`;
-      }
-    }
-    return map;
-  } catch {
-    return {};
-  }
-}
-
-async function loadCoversJson(): Promise<Record<string, string>> {
-  try {
-    const res = await fetch('/covers.json');
-    if (!res.ok) return {};
-    return await res.json();
-  } catch {
-    return {};
-  }
-}
-
 export function CoverProvider({ children }: { children: React.ReactNode }) {
-  const [coversMap, setCoversMap] = useState<Record<string, string>>({});
-  const [ready, setReady] = useState(false);
+  const { refreshBooks } = useBooks();
+
+  const getCover = useCallback((_bookId: string): string | null => null, []);
 
   const refreshCovers = useCallback(async () => {
-    const [sbMap, jsonMap] = await Promise.all([
-      loadFromSupabase(),
-      loadCoversJson(),
-    ]);
-    setCoversMap({ ...jsonMap, ...sbMap });
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    refreshCovers();
-  }, [refreshCovers]);
-
-  const getCover = useCallback(
-    (bookId: string): string | null => {
-      const url = coversMap[bookId];
-      return url && url.length > 5 ? url : null;
-    },
-    [coversMap]
-  );
+    await refreshBooks();
+  }, [refreshBooks]);
 
   return (
-    <CoverContext.Provider value={{ getCover, refreshCovers, ready }}>
+    <CoverContext.Provider value={{ getCover, refreshCovers, ready: true }}>
       {children}
     </CoverContext.Provider>
   );

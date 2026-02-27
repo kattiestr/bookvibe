@@ -7,54 +7,62 @@ import type { Book } from '../data/books';
 interface BooksContextValue {
   books: Book[];
   loading: boolean;
+  refreshBooks: () => Promise<void>;
 }
 
 const BooksContext = createContext<BooksContextValue>({
   books: staticBooks,
   loading: false,
+  refreshBooks: async () => {},
 });
 
-type BookRow = {
+type CatalogBookRow = {
   id: string;
   title: string;
   author: string;
   isbn: string;
-  cover_path: string | null;
+  cover_url: string | null;
   spice: number;
   pages: number | null;
   year: number | null;
   description: string | null;
+  rating: number | null;
+  series_id: string | null;
   series_number: number | null;
-  series: { name: string } | null;
-  book_tags: Array<{
-    tags: { slug: string; type: string } | null;
+  catalog_series: { name: string } | null;
+  catalog_book_tags: Array<{
+    catalog_tags: { slug: string; type: string } | null;
   }>;
-  book_similar: Array<{ similar_book_id: string }>;
+  catalog_book_similar: Array<{ similar_book_id: string }>;
+  catalog_book_vibes: Array<{ vibe_text: string; sort_order: number }>;
 };
 
 async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | null> {
   const { data, error } = await client
-    .from('books')
+    .from('catalog_books')
     .select(`
       id,
       title,
       author,
       isbn,
-      cover_path,
+      cover_url,
       spice,
       pages,
       year,
       description,
+      rating,
+      series_id,
       series_number,
-      series ( name ),
-      book_tags ( tags ( slug, type ) ),
-      book_similar!book_similar_book_id_fkey ( similar_book_id )
+      catalog_series ( name ),
+      catalog_book_tags ( catalog_tags ( slug, type ) ),
+      catalog_book_similar ( similar_book_id ),
+      catalog_book_vibes ( vibe_text, sort_order )
     `)
-    .order('title');
+    .order('id');
 
   if (error || !data) return null;
 
-  const rows = data as unknown as BookRow[];
+  const rows = data as unknown as CatalogBookRow[];
 
   const idToTitle: Record<string, string> = {};
   for (const row of rows) {
@@ -65,32 +73,37 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
     const tropes: string[] = [];
     const genres: string[] = [];
     const mood: string[] = [];
-    const vibes: string[] = [];
 
-    for (const bt of row.book_tags) {
-      if (!bt.tags) continue;
-      const { slug, type } = bt.tags;
+    for (const bt of row.catalog_book_tags) {
+      if (!bt.catalog_tags) continue;
+      const { slug, type } = bt.catalog_tags;
       if (type === 'trope') tropes.push(slug);
       else if (type === 'genre') genres.push(slug);
       else if (type === 'mood') mood.push(slug);
-      else if (type === 'vibe') vibes.push(slug);
     }
 
-    const similar = row.book_similar
+    const similar = row.catalog_book_similar
       .map((s) => idToTitle[s.similar_book_id])
       .filter(Boolean);
+
+    const vibes = row.catalog_book_vibes
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((v) => v.vibe_text);
 
     const book: Book = {
       id: row.id,
       title: row.title,
       author: row.author,
       isbn: row.isbn,
-      cover: row.cover_path ?? `https://covers.openlibrary.org/b/isbn/${row.isbn}-L.jpg`,
+      cover: row.cover_url && row.cover_url.length > 0
+        ? row.cover_url
+        : `https://covers.openlibrary.org/b/isbn/${row.isbn}-L.jpg`,
       spice: (row.spice ?? 0) as Book['spice'],
       pages: row.pages ?? undefined,
       year: row.year ?? undefined,
       description: row.description ?? undefined,
-      series: row.series?.name ?? undefined,
+      rating: row.rating ?? undefined,
+      series: row.catalog_series?.name ?? undefined,
       seriesNumber: row.series_number ?? undefined,
       tropes: tropes as Book['tropes'],
       genres: genres as Book['genres'],
@@ -106,6 +119,15 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
 export function BooksProvider({ children }: { children: ReactNode }) {
   const [books, setBooks] = useState<Book[]>(staticBooks);
   const [loading, setLoading] = useState(true);
+
+  const refreshBooks = async () => {
+    const result = getSupabase();
+    if (!result.client) return;
+    const fetched = await fetchBooksFromSupabase(result.client);
+    if (fetched && fetched.length > 0) {
+      setBooks(fetched);
+    }
+  };
 
   useEffect(() => {
     const result = getSupabase();
@@ -125,7 +147,7 @@ export function BooksProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <BooksContext.Provider value={{ books, loading }}>
+    <BooksContext.Provider value={{ books, loading, refreshBooks }}>
       {children}
     </BooksContext.Provider>
   );
