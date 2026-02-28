@@ -67,7 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { client } = getSupabase();
     if (!client) return;
     await client.auth.signOut();
-    window.location.href = window.location.origin;
   };
 
   return (
