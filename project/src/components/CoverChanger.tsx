@@ -118,7 +118,9 @@ async function handleSave() {
 
     // Скачиваем картинку и загружаем в Supabase Storage
     const response = await fetch(imageUrl);
+    console.log('fetch status:', response.status, response.ok);
     const blob = await response.blob();
+    console.log('blob size:', blob.size, 'type:', blob.type);
     const ext = 'jpg';
 
     let storagePath = '';
