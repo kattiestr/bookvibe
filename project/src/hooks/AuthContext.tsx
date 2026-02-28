@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: 'https://bookvibe-xi.vercel.app',
         queryParams: {
           prompt: 'select_account',
        },
