@@ -96,50 +96,77 @@ export default function CoverChanger({
     setSearchDone(true);
   }
 
-  async function handleSave() {
-    const imageUrl = (selected || customUrl || '').trim();
-    if (!imageUrl) return;
+async function handleSave() {
+  const imageUrl = (selected || customUrl || '').trim();
+  if (!imageUrl) return;
 
-    setSaving(true);
-    setSaveMsg('');
+  setSaving(true);
+  setSaveMsg('');
 
-    try {
-      const sb = getSupabase();
-      if (!sb.client) {
-        setSaveMsg('Save failed: Supabase not configured (missing env vars)');
-        setSaving(false);
-        return;
-      }
+  try {
+    const sb = getSupabase();
+    if (!sb.client) {
+      setSaveMsg('Save failed: Supabase not configured');
+      setSaving(false);
+      return;
+    }
 
-      const { data: { user } } = await sb.client.auth.getUser();
-      if (!user) throw new Error('Not logged in');
+    const { data: { user } } = await sb.client.auth.getUser();
+    if (!user) throw new Error('Not logged in');
 
-      const isAdmin = user.email === 'kattiestrokach@gmail.com';
+    const isAdmin = user.email === 'kattiestrokach@gmail.com';
 
-      if (isAdmin) {
-       const { error } = await sb.client
+    // Скачиваем картинку и загружаем в Supabase Storage
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    const ext = 'jpg';
+
+    let storagePath = '';
+    if (isAdmin) {
+      storagePath = `books/${bookId}.${ext}`;
+    } else {
+      storagePath = `users/${user.id}/${bookId}.${ext}`;
+    }
+
+    const { error: uploadError } = await sb.client.storage
+      .from('covers')
+      .upload(storagePath, blob, {
+        contentType: 'image/jpeg',
+        upsert: true, // заменяет если уже есть
+      });
+    if (uploadError) throw uploadError;
+
+    // Получаем постоянную публичную ссылку
+    const { data: publicData } = sb.client.storage
+      .from('covers')
+      .getPublicUrl(storagePath);
+    const permanentUrl = publicData.publicUrl;
+
+    // Сохраняем в базу
+    if (isAdmin) {
+      const { error } = await sb.client
         .from('books')
-        .update({ cover_path: imageUrl })
+        .update({ cover_path: permanentUrl })
         .eq('id', String(bookId));
       if (error) throw error;
     } else {
       const { error } = await sb.client
         .from('user_library')
-        .update({ cover: imageUrl })
+        .update({ cover: permanentUrl })
         .eq('book_id', String(bookId))
         .eq('user_id', user.id);
       if (error) throw error;
     }
 
-      setSaveMsg('Saved!');
-      setSaving(false);
-      onChanged(imageUrl);
-      await refreshCovers();
-    } catch (e: any) {
-      setSaveMsg(`Save failed: ${e?.message || String(e)}`);
-      setSaving(false);
-    }
+    setSaveMsg('Saved!');
+    setSaving(false);
+    onChanged(permanentUrl);
+    await refreshCovers();
+  } catch (e: any) {
+    setSaveMsg(`Save failed: ${e?.message || String(e)}`);
+    setSaving(false);
   }
+}
 
   const showSaveButton = Boolean(selected || customUrl);
 
