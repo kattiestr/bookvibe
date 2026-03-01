@@ -11,7 +11,13 @@ export function getSupabase(): { client: SupabaseClient; url: string; key: strin
   }
 
   if (!_client) {
-    _client = createClient(url, key);
+    _client = createClient(url, key, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        storageKey: 'bookvibe-auth',
+      }
+    });
   }
 
   return { client: _client, url, key };
