@@ -117,7 +117,17 @@ async function handleSave() {
     const isAdmin = user.email === 'kattiestrokach@gmail.com';
 
     // Скачиваем картинку и загружаем в Supabase Storage
-    const response = await fetch(imageUrl);
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const session = await sb.client.auth.getSession();
+    const proxyUrl = `${supabaseUrl}/functions/v1/proxy-image`;
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.data.session?.access_token}`
+      },
+      body: JSON.stringify({ url: imageUrl })
+    });
     console.log('fetch status:', response.status, response.ok);
     const blob = await response.blob();
     console.log('blob size:', blob.size, 'type:', blob.type);
