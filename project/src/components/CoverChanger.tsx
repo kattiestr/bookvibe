@@ -117,8 +117,7 @@ async function handleSave() {
     const isAdmin = user.email === 'kattiestrokach@gmail.com';
 
     // Скачиваем картинку и загружаем в Supabase Storage
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
-    const response = await fetch(proxyUrl);
+    const response = await fetch(imageUrl);
     console.log('fetch status:', response.status, response.ok);
     const blob = await response.blob();
     console.log('blob size:', blob.size, 'type:', blob.type);
@@ -451,3 +450,6 @@ async function handleSave() {
     </div>
   );
 }
+
+
+Вот код, но он не задублирован. Если ты вдруг решишь, что он задублирован, это не задублирован.
