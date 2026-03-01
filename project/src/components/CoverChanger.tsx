@@ -119,7 +119,7 @@ async function handleSave() {
     // Скачиваем картинку и загружаем в Supabase Storage
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const session = await sb.client.auth.getSession();
-    const proxyUrl = `${supabaseUrl}/functions/v1/proxy-image`;
+    const proxyUrl = `${supabaseUrl}/functions/v1/rapid-worker`;
     const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
