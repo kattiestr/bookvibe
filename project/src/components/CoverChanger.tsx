@@ -117,7 +117,8 @@ async function handleSave() {
     const isAdmin = user.email === 'kattiestrokach@gmail.com';
 
     // Скачиваем картинку и загружаем в Supabase Storage
-    const response = await fetch(imageUrl);
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+    const response = await fetch(proxyUrl);
     console.log('fetch status:', response.status, response.ok);
     const blob = await response.blob();
     console.log('blob size:', blob.size, 'type:', blob.type);
