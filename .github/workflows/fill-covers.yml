@@ -1,0 +1,23 @@
+name: Fill Book Covers
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fill-covers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: cd project && npm install
+        
+      - name: Run script
+        run: cd project && node scripts/fill-covers.mjs
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
