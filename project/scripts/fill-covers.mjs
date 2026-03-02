@@ -1,16 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
 
-// Читаем .env вручную
-const env = readFileSync('.env', 'utf8');
-const getEnv = (key) => {
-  const line = env.split('\n').find(l => l.startsWith(key + '='));
-  return line ? line.split('=').slice(1).join('=').trim() : null;
-};
-
-const SUPABASE_URL = getEnv('VITE_SUPABASE_URL');
-const SUPABASE_SERVICE_KEY = getEnv('SUPABASE_SERVICE_ROLE_KEY');
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PROXY_URL = `${SUPABASE_URL}/functions/v1/proxy-image`;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
