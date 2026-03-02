@@ -7,9 +7,6 @@ const PROXY_URL = `${SUPABASE_URL}/functions/v1/proxy-image`;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
 async function tryOpenLibrary(isbn) {
   if (!isbn) return null;
   const clean = isbn.replace(/[-\s]/g, '');
