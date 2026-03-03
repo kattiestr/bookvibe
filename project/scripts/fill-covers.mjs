@@ -6,9 +6,11 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// Проверяет совпадение названия (минимум 70%)
 function titleMatch(found, expected) {
-  const normalize = (s) => s.toLowerCase().replace(/[«»""''\-–—,:;!?()]/g, '').replace(/\s+/g, ' ').trim();
+  const normalize = (s) => s.toLowerCase()
+    .replace(/[«»""''\-–—,:;!?()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   const a = normalize(found);
   const b = normalize(expected);
   if (a.includes(b) || b.includes(a)) return { ok: true, score: 100 };
@@ -29,118 +31,115 @@ async function testImageUrl(url) {
   } catch { return false; }
 }
 
+async function tryGoogleBooks(title, author) {
+  try {
+    const query = encodeURIComponent(`${title} ${author}`);
+    const res = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=5&langRestrict=ru`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return { url: null, reason: `Google Books: ошибка ${res.status}` };
+    const data = await res.json();
+    const items = data.items || [];
+    if (items.length === 0) return { url: null, reason: 'Google Books: ничего не найдено' };
+
+    for (const item of items) {
+      const foundTitle = item.volumeInfo?.title || '';
+      const match = titleMatch(foundTitle, title);
+      if (!match.ok) {
+        console.log(`    Google Books: нашёл "${foundTitle}" — не совпадает (${match.score}%)`);
+        continue;
+      }
+      const images = item.volumeInfo?.imageLinks;
+      if (!images) {
+        console.log(`    Google Books: "${foundTitle}" совпадает, но нет обложки`);
+        continue;
+      }
+      let url = images.extraLarge || images.large || images.medium || images.thumbnail;
+      if (!url) continue;
+      url = url
+        .replace('http://', 'https://')
+        .replace('zoom=1', 'zoom=3')
+        .replace('&edge=curl', '');
+      const ok = await testImageUrl(url);
+      if (ok) return { url, reason: null };
+    }
+    return { url: null, reason: 'Google Books: совпадений с нужным названием не найдено' };
+  } catch (e) {
+    return { url: null, reason: `Google Books: ${e.message}` };
+  }
+}
+
 async function tryLitres(title, author) {
   try {
     const query = encodeURIComponent(`${title} ${author}`);
     const res = await fetch(
-      `https://www.litres.ru/api/5/search/?phrase=${query}&limit=3&type=art`,
-      { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) }
+      `https://api.litres.ru/foundation/api/arts?search=${query}&limit=5`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0',
+          'Accept': 'application/json',
+        },
+        signal: AbortSignal.timeout(8000)
+      }
     );
     if (!res.ok) return { url: null, reason: `ЛитРес: ошибка ${res.status}` };
     const data = await res.json();
-    const items = data?.payload?.data?.arts || [];
+    const items = data?.payload?.items || [];
     if (items.length === 0) return { url: null, reason: 'ЛитРес: ничего не найдено' };
 
     for (const item of items) {
       const foundTitle = item.title || '';
       const match = titleMatch(foundTitle, title);
       if (!match.ok) {
+        console.log(`    ЛитРес: нашёл "${foundTitle}" — не совпадает (${match.score}%)`);
         continue;
       }
-      const cover = item.cover || item.coverLarge;
-      if (!cover) continue;
+      const cover = item.cover?.url || item.coverLarge?.url;
+      if (!cover) {
+        console.log(`    ЛитРес: "${foundTitle}" совпадает, но нет обложки`);
+        continue;
+      }
       const url = cover.startsWith('http') ? cover : `https:${cover}`;
       const ok = await testImageUrl(url);
       if (ok) return { url, reason: null };
     }
-    const firstTitle = items[0]?.title || '?';
-    const match = titleMatch(firstTitle, title);
-    return { url: null, reason: `ЛитРес: нашёл "${firstTitle}" — не совпадает (${match.score}%)` };
+    return { url: null, reason: 'ЛитРес: совпадений с нужным названием не найдено' };
   } catch (e) {
     return { url: null, reason: `ЛитРес: ${e.message}` };
   }
 }
 
-async function tryOzon(title, author) {
+async function tryOpenLibrary(title, author) {
   try {
     const query = encodeURIComponent(`${title} ${author}`);
     const res = await fetch(
-      `https://api.ozon.ru/composer-api.bx/page/json/v2?url=/search/?text=${query}&from_global=true`,
-      { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) }
+      `https://openlibrary.org/search.json?q=${query}&limit=5&language=rus`,
+      { signal: AbortSignal.timeout(8000) }
     );
-    if (!res.ok) return { url: null, reason: `Озон: ошибка ${res.status}` };
+    if (!res.ok) return { url: null, reason: `OpenLibrary: ошибка ${res.status}` };
     const data = await res.json();
-    const items = data?.widgetStates ? Object.values(data.widgetStates) : [];
-    for (const raw of items) {
-      try {
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        const products = parsed?.items || parsed?.products || [];
-        for (const p of products) {
-          const foundTitle = p.title || p.name || '';
-          if (!foundTitle) continue;
-          const match = titleMatch(foundTitle, title);
-          if (!match.ok) continue;
-          const imageUrl = p.image || p.imageUrl || p.coverImage;
-          if (!imageUrl) continue;
-          const ok = await testImageUrl(imageUrl);
-          if (ok) return { url: imageUrl, reason: null };
-        }
-      } catch { continue; }
-    }
-    return { url: null, reason: 'Озон: не найдено совпадений' };
-  } catch (e) {
-    return { url: null, reason: `Озон: ${e.message}` };
-  }
-}
+    const docs = data.docs || [];
+    if (docs.length === 0) return { url: null, reason: 'OpenLibrary: ничего не найдено' };
 
-async function tryChitaiGorod(title, author) {
-  try {
-    const query = encodeURIComponent(`${title} ${author}`);
-    const res = await fetch(
-      `https://www.chitai-gorod.ru/search?phrase=${query}`,
-      { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' }, signal: AbortSignal.timeout(8000) }
-    );
-    if (!res.ok) return { url: null, reason: `Читай-город: ошибка ${res.status}` };
-    const html = await res.text();
-    const titleMatch2 = html.match(/og:title[^>]*content="([^"]+)"/);
-    const imageMatch = html.match(/og:image[^>]*content="([^"]+)"/);
-    if (!imageMatch) return { url: null, reason: 'Читай-город: обложка не найдена' };
-    const foundTitle = titleMatch2?.[1] || '';
-    const match = titleMatch(foundTitle, title);
-    if (!match.ok) return { url: null, reason: `Читай-город: нашёл "${foundTitle}" — не совпадает (${match.score}%)` };
-    const ok = await testImageUrl(imageMatch[1]);
-    if (!ok) return { url: null, reason: 'Читай-город: изображение недоступно' };
-    return { url: imageMatch[1], reason: null };
-  } catch (e) {
-    return { url: null, reason: `Читай-город: ${e.message}` };
-  }
-}
-
-async function tryLabirint(title, author) {
-  try {
-    const query = encodeURIComponent(`${title} ${author}`);
-    const res = await fetch(
-      `https://www.labirint.ru/search/${query}/?stype=0`,
-      { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) }
-    );
-    if (!res.ok) return { url: null, reason: `Лабиринт: ошибка ${res.status}` };
-    const html = await res.text();
-    const blocks = [...html.matchAll(/class="product-cover"[\s\S]*?<img[^>]*src="([^"]+)"[^>]*alt="([^"]+)"/g)];
-    if (blocks.length === 0) return { url: null, reason: 'Лабиринт: ничего не найдено' };
-    for (const block of blocks) {
-      const imgUrl = block[1];
-      const foundTitle = block[2];
+    for (const doc of docs) {
+      const foundTitle = doc.title || '';
       const match = titleMatch(foundTitle, title);
-      if (!match.ok) continue;
-      const url = imgUrl.startsWith('http') ? imgUrl : `https://www.labirint.ru${imgUrl}`;
+      if (!match.ok) {
+        console.log(`    OpenLibrary: нашёл "${foundTitle}" — не совпадает (${match.score}%)`);
+        continue;
+      }
+      if (!doc.cover_i) {
+        console.log(`    OpenLibrary: "${foundTitle}" совпадает, но нет обложки`);
+        continue;
+      }
+      const url = `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`;
       const ok = await testImageUrl(url);
       if (ok) return { url, reason: null };
     }
-    const firstTitle = blocks[0]?.[2] || '?';
-    const match = titleMatch(firstTitle, title);
-    return { url: null, reason: `Лабиринт: нашёл "${firstTitle}" — не совпадает (${match.score}%)` };
+    return { url: null, reason: 'OpenLibrary: совпадений с нужным названием не найдено' };
   } catch (e) {
-    return { url: null, reason: `Лабиринт: ${e.message}` };
+    return { url: null, reason: `OpenLibrary: ${e.message}` };
   }
 }
 
@@ -188,13 +187,11 @@ async function main() {
 
     try {
       let foundUrl = null;
-      const reasons = [];
 
       const sources = [
+        { name: 'Google Books', fn: () => tryGoogleBooks(book.title, book.author) },
         { name: 'ЛитРес', fn: () => tryLitres(book.title, book.author) },
-        { name: 'Озон', fn: () => tryOzon(book.title, book.author) },
-        { name: 'Читай-город', fn: () => tryChitaiGorod(book.title, book.author) },
-        { name: 'Лабиринт', fn: () => tryLabirint(book.title, book.author) },
+        { name: 'OpenLibrary', fn: () => tryOpenLibrary(book.title, book.author) },
       ];
 
       for (const source of sources) {
@@ -206,7 +203,6 @@ async function main() {
           break;
         } else {
           console.log(`  ⏭️  ${result.reason}`);
-          reasons.push(result.reason);
         }
       }
 
