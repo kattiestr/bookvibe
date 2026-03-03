@@ -91,7 +91,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       author: row.author,
       isbn: row.isbn,
       cover: row.cover_path && row.cover_path.length > 0
-        ? row.cover_path
+        ? `${row.cover_path}?t=${Date.now()}`
         : `https://covers.openlibrary.org/b/isbn/${row.isbn}-L.jpg`,
       spice: (row.spice ?? 0) as Book['spice'],
       pages: row.pages ?? undefined,
