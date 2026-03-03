@@ -66,13 +66,12 @@ async function testImageUrl(url) {
 }
 
 async function downloadAndUpload(imageUrl, bookId) {
-  const proxyRes = await fetch(PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: imageUrl }),
+  const res = await fetch(imageUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+    signal: AbortSignal.timeout(10000),
   });
-  if (!proxyRes.ok) throw new Error(`Proxy error: ${proxyRes.status}`);
-  const blob = await proxyRes.blob();
+  if (!res.ok) throw new Error(`Fetch error: ${res.status}`);
+  const blob = await res.blob();
   if (blob.size < 5000) throw new Error(`Слишком маленькая: ${blob.size} байт`);
   const fileName = `books/${bookId}.jpg`;
   const { error } = await supabase.storage.from('covers').upload(fileName, blob, {
