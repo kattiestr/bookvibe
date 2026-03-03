@@ -152,7 +152,7 @@ async function handleSave() {
     const { data: publicData } = sb.client.storage
       .from('covers')
       .getPublicUrl(storagePath);
-    const permanentUrl = publicData.publicUrl;
+    const permanentUrl = `${publicData.publicUrl}?t=${Date.now()}`;
 
     // Сохраняем в базу
     if (isAdmin) {
