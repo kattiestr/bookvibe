@@ -2,22 +2,45 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const PROXY_URL = `${SUPABASE_URL}/functions/v1/proxy-image`;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-async function tryOpenLibrary(isbn) {
-  if (!isbn) return null;
-  const clean = isbn.replace(/[-\s]/g, '');
-  const url = `https://covers.openlibrary.org/b/isbn/${clean}-L.jpg`;
-  const ok = await testImageUrl(url);
-  return ok ? url : null;
+async function testImageUrl(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return false;
+    const type = res.headers.get('content-type') || '';
+    const length = parseInt(res.headers.get('content-length') || '0');
+    return type.startsWith('image/') && length > 5000;
+  } catch { return false; }
+}
+
+async function tryOpenLibrary(isbn, title, author) {
+  try {
+    if (isbn) {
+      const clean = isbn.replace(/[-\s]/g, '');
+      const url = `https://covers.openlibrary.org/b/isbn/${clean}-L.jpg`;
+      const ok = await testImageUrl(url);
+      if (ok) return url;
+    }
+    const query = encodeURIComponent(`${title} ${author}`);
+    const res = await fetch(`https://openlibrary.org/search.json?q=${query}&limit=3`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    for (const doc of data.docs || []) {
+      if (!doc.cover_i) continue;
+      const url = `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`;
+      const ok = await testImageUrl(url);
+      if (ok) return url;
+    }
+    return null;
+  } catch { return null; }
 }
 
 async function tryGoogleBooks(title, author) {
   try {
-    const query = encodeURIComponent(`${title} ${author}`);
+    const query = encodeURIComponent(`intitle:${title} inauthor:${author}`);
     const res = await fetch(
       `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=3&printType=books`
     );
@@ -34,35 +57,6 @@ async function tryGoogleBooks(title, author) {
     }
     return null;
   } catch { return null; }
-}
-
-async function tryLitres(title, author) {
-  try {
-    const query = encodeURIComponent(`${title} ${author}`);
-    const res = await fetch(
-      `https://api.litres.ru/foundation/api/arts?search=${query}&limit=5`,
-      { headers: { 'User-Agent': 'Mozilla/5.0' } }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const items = data?.payload?.data || [];
-    for (const item of items) {
-      const url = `https://cdn.litres.ru/pub/c/cover_415/${item.id}.jpg`;
-      const ok = await testImageUrl(url);
-      if (ok) return url;
-    }
-    return null;
-  } catch { return null; }
-}
-
-async function testImageUrl(url) {
-  try {
-    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return false;
-    const type = res.headers.get('content-type') || '';
-    const length = parseInt(res.headers.get('content-length') || '0');
-    return type.startsWith('image/') && length > 5000;
-  } catch { return false; }
 }
 
 async function downloadAndUpload(imageUrl, bookId) {
@@ -110,19 +104,13 @@ async function main() {
     try {
       let foundUrl = null, source = '';
 
-      foundUrl = await tryOpenLibrary(book.isbn);
+      foundUrl = await tryOpenLibrary(book.isbn, book.title, book.author);
       if (foundUrl) source = 'OpenLibrary';
 
       if (!foundUrl) {
         await sleep(300);
         foundUrl = await tryGoogleBooks(book.title, book.author);
         if (foundUrl) source = 'Google Books';
-      }
-
-      if (!foundUrl) {
-        await sleep(300);
-        foundUrl = await tryLitres(book.title, book.author);
-        if (foundUrl) source = 'ЛитРес';
       }
 
       if (!foundUrl) {
@@ -151,7 +139,7 @@ async function main() {
   console.log(`✅ Успешно: ${success}`);
   console.log(`❌ Не найдено: ${failed}`);
   if (failedBooks.length > 0) {
-    console.log('\n📋 Вручную:');
+    console.log('\n📋 Книги без обложки:');
     failedBooks.forEach(b => console.log(`  - ${b}`));
   }
 }
