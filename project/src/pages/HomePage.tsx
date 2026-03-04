@@ -23,6 +23,28 @@ const accent = '#c4a07c';
 const muted = '#5c5450';
 const bg2 = '#1e1a18';
 
+function getMonthlyReads(library: any[]) {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+
+  return library
+    .filter((b) => {
+      if (!b.dateFinished) return false;
+      if (b.status !== 'finished' && b.status !== 'read-before') return false;
+      const d = new Date(b.dateFinished);
+      return d.getMonth() === month && d.getFullYear() === year;
+    })
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+}
+
+function getRatingLabel(rating: number): { label: string; color: string } {
+  if (rating >= 8) return { label: '✅ Love it',     color: '#6b9e7a' };
+  if (rating >= 5) return { label: '🤷 It was ok',   color: '#c9a84c' };
+  if (rating > 0)  return { label: '❌ Not for me',  color: '#b05050' };
+  return { label: '— No rating', color: '#5c5450' };
+}
+
 export default function HomePage() {
   const { books: booksDatabase } = useBooks();
   const { library, getStats } = useLibrary();
@@ -31,8 +53,8 @@ export default function HomePage() {
   const [sel, setSel] = useState<string | null>(null);
   const [greeting] = useState(() => getTimeGreeting());
 
-  // Книги со статусом reading
   const readingBooks = library.filter((b) => b.status === 'reading');
+  const monthlyReads = getMonthlyReads(library);
 
   const books = sel
     ? booksDatabase.filter((b) => {
@@ -62,16 +84,104 @@ export default function HomePage() {
       <p style={{ color: muted, fontSize: 13, marginTop: 2 }}>
         find your next obsession
       </p>
-      <p
-        style={{
-          fontSize: 13,
-          color: '#8a8480',
-          fontStyle: 'italic',
-          marginTop: 8,
-        }}
-      >
+      <p style={{ fontSize: 13, color: '#8a8480', fontStyle: 'italic', marginTop: 8 }}>
         {greeting}
       </p>
+
+      {/* This Month's Reads */}
+      {monthlyReads.length > 0 && (
+        <div style={{
+          marginTop: 24,
+          padding: '16px',
+          borderRadius: '16px',
+          background: bg2,
+          border: '1px solid #2a2520',
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 14,
+          }}>
+            <p style={{
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              color: muted,
+            }}>
+              📚 This Month's Reads
+            </p>
+            <span style={{ fontSize: 11, color: accent, fontWeight: 600 }}>
+              {monthlyReads.length} book{monthlyReads.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {monthlyReads.slice(0, 3).map((book, i) => {
+              const medals = ['🥇', '🥈', '🥉'];
+              const { label, color } = getRatingLabel(book.rating || 0);
+              return (
+                <div
+                  key={book.bookId}
+                  onClick={() => navigate(`/library/${book.bookId}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>{medals[i]}</span>
+                  <img
+                    src={book.cover}
+                    alt={book.title}
+                    style={{
+                      width: 36,
+                      height: 52,
+                      objectFit: 'cover',
+                      borderRadius: 5,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#e2ddd5',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {book.title}
+                    </p>
+                    <p style={{ fontSize: 10, color: muted }}>{book.author}</p>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {book.rating > 0 && (
+                      <p style={{ fontSize: 13, fontWeight: 700, color: '#c9a84c' }}>
+                        {book.rating}/10
+                      </p>
+                    )}
+                    <p style={{ fontSize: 9, color, fontWeight: 600 }}>{label}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {monthlyReads.length > 3 && (
+            <p style={{
+              fontSize: 11,
+              color: muted,
+              textAlign: 'center',
+              marginTop: 12,
+              fontStyle: 'italic',
+            }}>
+              +{monthlyReads.length - 3} more books this month
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Continue Reading */}
       {readingBooks.length > 0 && (
@@ -109,7 +219,6 @@ export default function HomePage() {
                     width: '100%',
                   }}
                 >
-                  {/* Обложка */}
                   {book.cover ? (
                     <img
                       src={book.cover}
@@ -132,7 +241,6 @@ export default function HomePage() {
                     }} />
                   )}
 
-                  {/* Инфо */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{
                       fontSize: 14,
@@ -149,7 +257,6 @@ export default function HomePage() {
                       {book.author}
                     </p>
 
-                    {/* Прогресс бар */}
                     <div style={{
                       height: 4,
                       borderRadius: 2,
@@ -166,7 +273,6 @@ export default function HomePage() {
                       }} />
                     </div>
 
-                    {/* Страницы */}
                     <div style={{
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -238,13 +344,11 @@ export default function HomePage() {
       </div>
 
       {/* Book grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 12,
-        }}
-      >
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 12,
+      }}>
         {books.map((book) => (
           <BookCard
             key={book.id}
