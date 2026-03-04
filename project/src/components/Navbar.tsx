@@ -1,12 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Search, Moon, BookOpen, BarChart3, Settings } from 'lucide-react';
+import { Home, Compass, BookOpen, BarChart3, Settings } from 'lucide-react';
 
 const accent = '#c4a07c';
 
 const tabs = [
   { to: '/', icon: Home, label: 'Home' },
-  { to: '/search', icon: Search, label: 'Search' },
-  { to: '/cycle', icon: Moon, label: 'Cycle' },
+  { to: '/discover', icon: Compass, label: 'Discover' },
   { to: '/library', icon: BookOpen, label: 'Library' },
   { to: '/stats', icon: BarChart3, label: 'Stats' },
   { to: '/settings', icon: Settings, label: 'Settings' },
