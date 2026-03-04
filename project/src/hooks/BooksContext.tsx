@@ -118,7 +118,7 @@ export function BooksProvider({ children }: { children: ReactNode }) {
     const result = getSupabase();
     if (!result.client) return;
     const fetched = await fetchBooksFromSupabase(result.client);
-    if (fetched && fetched.length > 0) {
+    if (fetched) {
       setBooks(fetched);
     }
   };
