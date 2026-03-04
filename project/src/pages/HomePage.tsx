@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBooks } from '../hooks/BooksContext';
+import { useLibrary } from '../hooks/LibraryContext';
 import type { Book } from '../data/books';
 import BookCard from '../components/BookCard';
 import { useFavorites } from '../hooks/useFavorites';
@@ -24,10 +25,14 @@ const bg2 = '#1e1a18';
 
 export default function HomePage() {
   const { books: booksDatabase } = useBooks();
+  const { library, getStats } = useLibrary();
   const navigate = useNavigate();
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
   const [sel, setSel] = useState<string | null>(null);
   const [greeting] = useState(() => getTimeGreeting());
+
+  // Книги со статусом reading
+  const readingBooks = library.filter((b) => b.status === 'reading');
 
   const books = sel
     ? booksDatabase.filter((b) => {
@@ -68,55 +73,126 @@ export default function HomePage() {
         {greeting}
       </p>
 
-      {/* Feature buttons */}
-      <div className="flex gap-2 overflow-x-auto pb-3 mt-6 mb-6 scrollbar-hide">
-        {[
-          {
-            path: '/if-you-liked',
-            emoji: '💡',
-            title: 'If You Liked...',
-            sub: 'smart recommendations',
-          },
-          {
-            path: '/quiz',
-            emoji: '✨',
-            title: 'Vibe Match',
-            sub: 'find by mood',
-          },
-          { path: '/spin', emoji: '🎰', title: 'Spin', sub: 'random pick' },
-          {
-            path: '/tbr',
-            emoji: '📚',
-            title: 'TBR Builder',
-            sub: 'plan your reads',
-          },
-        ].map((item) => (
-          <button
-            key={item.path}
-            onClick={() => navigate(item.path)}
-            style={{
-              padding: '12px 18px',
-              borderRadius: 14,
-              border: '1px solid #2a2520',
-              background: '#1a1614',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            <span style={{ fontSize: 18 }}>{item.emoji}</span>
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: '#e2ddd5' }}>
-                {item.title}
-              </p>
-              <p style={{ fontSize: 9, color: muted }}>{item.sub}</p>
-            </div>
-          </button>
-        ))}
-      </div>
+      {/* Continue Reading */}
+      {readingBooks.length > 0 && (
+        <div style={{ marginTop: 28, marginBottom: 28 }}>
+          <p style={{
+            fontSize: 11,
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            color: muted,
+            marginBottom: 12,
+          }}>
+            Continue Reading
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {readingBooks.map((book) => {
+              const stats = getStats(book.bookId);
+              const progress = stats?.progress ?? 0;
+              const pagesLeft = stats?.pagesLeft ?? (book.totalPages - book.currentPage);
+
+              return (
+                <button
+                  key={book.bookId}
+                  onClick={() => navigate(`/library/${book.bookId}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: '14px 16px',
+                    borderRadius: 16,
+                    background: bg2,
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                >
+                  {/* Обложка */}
+                  {book.cover ? (
+                    <img
+                      src={book.cover}
+                      alt={book.title}
+                      style={{
+                        width: 48,
+                        height: 68,
+                        objectFit: 'cover',
+                        borderRadius: 6,
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 48,
+                      height: 68,
+                      borderRadius: 6,
+                      background: '#2a2520',
+                      flexShrink: 0,
+                    }} />
+                  )}
+
+                  {/* Инфо */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: '#e2ddd5',
+                      marginBottom: 2,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {book.title}
+                    </p>
+                    <p style={{ fontSize: 12, color: muted, marginBottom: 10 }}>
+                      {book.author}
+                    </p>
+
+                    {/* Прогресс бар */}
+                    <div style={{
+                      height: 4,
+                      borderRadius: 2,
+                      background: '#2a2520',
+                      marginBottom: 6,
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${progress}%`,
+                        borderRadius: 2,
+                        background: accent,
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+
+                    {/* Страницы */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}>
+                      <p style={{ fontSize: 11, color: muted }}>
+                        page {book.currentPage} of {book.totalPages}
+                      </p>
+                      <span style={{
+                        fontSize: 11,
+                        color: '#4caf82',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}>
+                        ▶ {pagesLeft} pages left
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Category filter */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-6 scrollbar-hide">
