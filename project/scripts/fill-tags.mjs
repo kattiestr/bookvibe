@@ -69,17 +69,24 @@ Book:
 Return JSON with exactly these fields:
 
 {
-  "genres": [...],     // 1-3 items from: ${VALID_GENRES.join(', ')}
-  "tropes": [...],     // 3-8 most relevant from: ${VALID_TROPES.join(', ')}
-  "mood": [...],       // 2-4 items from: ${VALID_MOODS.join(', ')}
-  "vibes": [...],      // 3-5 short punchy strings in the style of BookTok — fun, atmospheric, emotional. Like: "He's her enemy. He'd burn the world for her. 🔥" or "Slow burn that will have you screaming at 2am 😤"
-  "description": "...", // 1-2 sentence engaging description in English. Keep it short and punchy.
-  "similar_titles": [...] // 2-4 titles of similar books (just the title, no author)
+  "genres": [...],
+  "tropes": [...],
+  "mood": [...],
+  "vibes": [...],
+  "description": "...",
+  "similar_titles": [...]
 }
+
+Rules:
+- genres: 1-3 items, only from this list: ${VALID_GENRES.join(', ')}
+- tropes: 3-8 most relevant, only from this list: ${VALID_TROPES.join(', ')}
+- mood: 2-4 items, only from this list: ${VALID_MOODS.join(', ')}
+- vibes: 3-5 short punchy BookTok-style strings with emojis. Like: "He's her enemy. He'd burn the world for her. 🔥" or "Slow burn that will have you screaming at 2am 😤"
+- description: 1-2 sentence engaging description in English, short and punchy
+- similar_titles: 2-4 titles of similar well-known books (title only, no author)
 
 IMPORTANT:
 - Only use slugs from the lists provided, no custom values for genres/tropes/mood
-- Vibes should feel like BookTok captions — short, emotional, fun, use emojis
 - If book is in Russian, still return everything in English
 - Return ONLY the JSON, no markdown, no explanation`;
 
@@ -90,8 +97,6 @@ IMPORTANT:
   });
 
   const text = message.content[0].text.trim();
-
-  // Убираем markdown если вдруг вернул
   const cleaned = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
   return JSON.parse(cleaned);
 }
@@ -134,29 +139,32 @@ async function main() {
   if (booksError) { console.error('❌ Ошибка загрузки книг:', booksError); return; }
   console.log(`📚 Всего книг в БД: ${allBooks.length}`);
 
-  // Книги для обработки:
-  // - EN книги (основные)
-  // - RU книги у которых НЕТ EN пары (русские авторы)
-  // Логика: берём EN книги + RU книги без series_id совпадения с EN
-
-  // Сначала берём все EN книги у которых нет тегов
+  // Загружаем EN книги
   const { data: enBooks } = await supabase
     .from('books')
     .select('id, title, author, description, language, series_id, series_number')
     .eq('language', 'en')
     .order('title');
 
-  // RU книги без EN пары — те у которых series_id не встречается среди EN книг
-  const enSeriesIds = new Set(enBooks.map(b => b.series_id).filter(Boolean));
+  // Загружаем RU книги
   const { data: ruBooks } = await supabase
     .from('books')
     .select('id, title, author, description, language, series_id, series_number')
     .eq('language', 'ru')
     .order('title');
 
+  // Собираем series_id и авторов EN книг
+  const enSeriesIds = new Set(enBooks.map(b => b.series_id).filter(Boolean));
+  const enAuthors = new Set(enBooks.map(b => b.author.toLowerCase().trim()));
+
+  // RU книги без EN пары — только русские авторы
   const ruOnlyBooks = ruBooks.filter(b => {
-    if (!b.series_id) return true; // нет серии — точно нет EN пары
-    return !enSeriesIds.has(b.series_id); // серия не встречается в EN
+    // Если серия совпадает с EN — это пара, пропускаем
+    if (b.series_id && enSeriesIds.has(b.series_id)) return false;
+    // Если автор есть среди EN авторов — скорее всего есть EN пара, пропускаем
+    if (enAuthors.has(b.author.toLowerCase().trim())) return false;
+    // Автора нет среди EN — русский автор, обрабатываем
+    return true;
   });
 
   // Проверяем какие книги уже имеют теги
@@ -170,8 +178,11 @@ async function main() {
     ...ruOnlyBooks.filter(b => !taggedBookIds.has(b.id)),
   ];
 
+  const enCount = enBooks.filter(b => !taggedBookIds.has(b.id)).length;
+  const ruCount = ruOnlyBooks.filter(b => !taggedBookIds.has(b.id)).length;
+
   console.log(`\n📖 Книг для обработки: ${toProcess.length}`);
-  console.log(`   (${enBooks.filter(b => !taggedBookIds.has(b.id)).length} EN + ${ruOnlyBooks.filter(b => !taggedBookIds.has(b.id)).length} RU без EN пары)\n`);
+  console.log(`   (${enCount} EN + ${ruCount} RU без EN пары)\n`);
 
   let success = 0, failed = 0;
   const failedBooks = [];
@@ -197,12 +208,12 @@ async function main() {
       console.log(`  🌶️  Tropes: ${validTropes.slice(0, 4).join(', ')}...`);
       console.log(`  💭 Mood:   ${validMoods.join(', ')}`);
 
-      // ── Получаем ID тегов ──
+      // Получаем ID тегов
       const genreIds = await getTagIds(validGenres, allTags);
       const tropeIds = await getTagIds(validTropes, allTags);
       const moodIds  = await getTagIds(validMoods,  allTags);
 
-      // Vibes — ищем в таблице tags с type='vibe' или создаём новые
+      // Vibes — ищем или создаём в таблице tags
       const vibeIds = [];
       for (const vibe of vibes) {
         const slug = vibe
@@ -219,7 +230,7 @@ async function main() {
             .select()
             .single();
           if (newTag) {
-            allTags.push(newTag); // добавляем в локальный кэш
+            allTags.push(newTag);
             existing = newTag;
           }
         }
@@ -228,30 +239,31 @@ async function main() {
 
       const allTagIds = [...new Set([...genreIds, ...tropeIds, ...moodIds, ...vibeIds])];
 
-      // ── Сохраняем book_tags для EN книги ──
+      // Сохраняем book_tags
       if (allTagIds.length > 0) {
         const bookTagRows = allTagIds.map(tag_id => ({ book_id: book.id, tag_id }));
         await supabase.from('book_tags').upsert(bookTagRows, { onConflict: 'book_id,tag_id' });
       }
 
-      // ── Сохраняем description ──
+      // Сохраняем description
       if (description) {
         await supabase.from('books').update({ description }).eq('id', book.id);
       }
 
-      // ── Сохраняем similar (book_similar) ──
+      // Сохраняем similar
       for (const similarTitle of similarTitles) {
         const similarId = await findBookIdByTitle(similarTitle, allBooks);
         if (similarId && similarId !== book.id) {
           await supabase
             .from('book_similar')
-            .upsert({ book_id: book.id, similar_book_id: similarId }, {
-              onConflict: 'book_id,similar_book_id'
-            });
+            .upsert(
+              { book_id: book.id, similar_book_id: similarId },
+              { onConflict: 'book_id,similar_book_id' }
+            );
         }
       }
 
-      // ── Копируем теги в RU пару (если это EN книга с серией) ──
+      // Копируем теги в RU пару (если это EN книга)
       if (book.language === 'en' && book.series_id) {
         const ruPair = ruBooks.find(b =>
           b.series_id === book.series_id &&
@@ -278,11 +290,9 @@ async function main() {
       failedBooks.push(`${book.title} — ${book.author}`);
     }
 
-    // Пауза между запросами чтобы не превысить rate limit
     await sleep(1500);
   }
 
-  // ── Итог ──
   console.log('\n═══════════════════════════════════════');
   console.log(`✅ Успешно: ${success}`);
   console.log(`❌ Ошибки:  ${failed}`);
