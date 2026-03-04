@@ -59,6 +59,7 @@ function MonthlyReadsWidget({
   return (
     <div style={{
       marginTop: 24,
+      marginBottom: 24,
       padding: '16px',
       borderRadius: '16px',
       background: bg2,
