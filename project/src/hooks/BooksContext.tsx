@@ -60,6 +60,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
   }
 
   const rows = data as unknown as BookRow[];
+  console.log('Всего книг пришло:', rows.length);
 
   const idToTitle: Record<string, string> = {};
   for (const row of rows) {
