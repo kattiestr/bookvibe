@@ -93,7 +93,7 @@ function MonthlyReadsWidget({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 12,
+                gap: 8,
                 cursor: 'pointer',
                 padding: '8px',
                 borderRadius: '10px',
@@ -103,7 +103,7 @@ function MonthlyReadsWidget({
               <span style={{
                 fontSize: i < 3 ? 18 : 13,
                 flexShrink: 0,
-                width: 24,
+                width: 32,
                 textAlign: 'center',
                 color: i >= 3 ? muted : undefined,
               }}>
