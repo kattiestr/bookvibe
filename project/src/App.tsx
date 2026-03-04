@@ -5,6 +5,7 @@ import { BooksProvider } from './hooks/BooksContext';
 import { AuthProvider, useAuth } from './hooks/AuthContext';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
+import DiscoverPage from './pages/DiscoverPage';
 import SearchPage from './pages/SearchPage';
 import BookPage from './pages/BookPage';
 import FavoritesPage from './pages/FavoritesPage';
@@ -52,6 +53,7 @@ function AppRoutes() {
     }}>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/discover" element={<DiscoverPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/book/:id" element={<BookPage />} />
         <Route path="/favorites" element={<FavoritesPage />} />
