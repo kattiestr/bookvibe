@@ -111,7 +111,7 @@ async function fetchGoogleBooks(title, author) {
         year:        info.publishedDate ? parseInt(info.publishedDate) : null,
         description: info.description || null,
         isbn:        (info.industryIdentifiers || []).find(i => i.type === 'ISBN_13')?.identifier || null,
-        spice:       null, // Google Books не даёт spice
+        spice:       null,
         source:      'Google Books',
         foundTitle:  info.title,
       };
@@ -183,9 +183,7 @@ async function fetchLitres(title, author) {
 async function fetchHardcover(title, author) {
   if (!HARDCOVER_TOKEN) return null;
   try {
-    // Экранируем кавычки в названии
     const safeTitle  = title.replace(/"/g, '\\"');
-    const safeAuthor = author.replace(/"/g, '\\"');
 
     const query = `
       query {
@@ -223,8 +221,9 @@ async function fetchHardcover(title, author) {
         .map(c => c.author?.name || '')
         .join(', ');
 
+      // ✅ Исправлено: используем author, а не safeAuthor
       if (!titleMatch(book.title || '', title).ok) continue;
-      if (!authorMatch(foundAuthor, safeAuthor)) continue;
+      if (!authorMatch(foundAuthor, author)) continue;
 
       const tags  = (book.taggings || []).map(t => t.tag);
       const spice = tagsToSpice(tags);
@@ -251,11 +250,11 @@ async function fetchHardcover(title, author) {
 // ════════════════════════════════════════
 
 async function main() {
-  console.log('🚀 Заполняем метаданные книг (pages, year, spice)...\n');
+  console.log('🚀 Заполняем метаданные книг (pages, year, spice, description)...\n');
 
   const { data: books, error } = await supabase
     .from('books')
-    .select('id, title, author, language, pages, year, spice, isbn')
+    .select('id, title, author, language, pages, year, spice, isbn, description')
     .or('pages.is.null,year.is.null,spice.is.null')
     .order('language')
     .order('title');
@@ -267,48 +266,47 @@ async function main() {
   }
 
   let success = 0, partial = 0, failed = 0;
-  const failedBooks   = [];
-  const partialBooks  = [];
+  const failedBooks  = [];
+  const partialBooks = [];
 
   for (let i = 0; i < books.length; i++) {
     const book = books[i];
     const lang = book.language === 'ru' ? '🇷🇺' : '🇬🇧';
     console.log(`[${i + 1}/${books.length}] ${lang} "${book.title}" — ${book.author}`);
 
-    const needPages = book.pages == null;
-    const needYear  = book.year  == null;
-    const needSpice = book.spice == null;
+    const needPages = book.pages       == null;
+    const needYear  = book.year        == null;
+    const needSpice = book.spice       == null;
+    const needDesc  = !book.description;
 
-    // Что уже есть
     let merged = {
       pages:       book.pages,
       year:        book.year,
       spice:       book.spice,
-      description: null,
+      description: book.description || null,
       isbn:        book.isbn,
     };
 
-    // Порядок источников: для RU ЛитРес идёт первым
     const sources = book.language === 'ru'
       ? [
-          { name: 'ЛитРес',      fn: () => fetchLitres(book.title, book.author) },
-          { name: 'Hardcover',   fn: () => fetchHardcover(book.title, book.author) },
-          { name: 'Google Books',fn: () => fetchGoogleBooks(book.title, book.author) },
-          { name: 'OpenLibrary', fn: () => fetchOpenLibrary(book.title, book.author) },
+          { name: 'ЛитРес',       fn: () => fetchLitres(book.title, book.author) },
+          { name: 'Hardcover',    fn: () => fetchHardcover(book.title, book.author) },
+          { name: 'Google Books', fn: () => fetchGoogleBooks(book.title, book.author) },
+          { name: 'OpenLibrary',  fn: () => fetchOpenLibrary(book.title, book.author) },
         ]
       : [
-          { name: 'Hardcover',   fn: () => fetchHardcover(book.title, book.author) },
-          { name: 'Google Books',fn: () => fetchGoogleBooks(book.title, book.author) },
-          { name: 'OpenLibrary', fn: () => fetchOpenLibrary(book.title, book.author) },
-          { name: 'ЛитРес',     fn: () => fetchLitres(book.title, book.author) },
+          { name: 'Hardcover',    fn: () => fetchHardcover(book.title, book.author) },
+          { name: 'Google Books', fn: () => fetchGoogleBooks(book.title, book.author) },
+          { name: 'OpenLibrary',  fn: () => fetchOpenLibrary(book.title, book.author) },
+          { name: 'ЛитРес',      fn: () => fetchLitres(book.title, book.author) },
         ];
 
     for (const source of sources) {
-      // Проверяем: всё ли уже заполнено
       const allFilled =
         (!needPages || merged.pages != null) &&
         (!needYear  || merged.year  != null) &&
-        (!needSpice || merged.spice != null);
+        (!needSpice || merged.spice != null) &&
+        (!needDesc  || merged.description != null);
       if (allFilled) break;
 
       await sleep(500);
@@ -321,7 +319,6 @@ async function main() {
 
       console.log(`  ✅ ${source.name}: "${result.foundTitle}"`);
 
-      // Заполняем только пустые поля
       if (needPages && merged.pages == null && result.pages) {
         merged.pages = result.pages;
         console.log(`     📄 Страниц: ${result.pages}`);
@@ -334,8 +331,9 @@ async function main() {
         merged.spice = result.spice;
         console.log(`     🌶️  Spice (${source.name}): ${result.spice}/5`);
       }
-      if (!merged.description && result.description) {
+      if (needDesc && !merged.description && result.description) {
         merged.description = result.description;
+        console.log(`     📝 Description: получено`);
       }
       if (!merged.isbn && result.isbn) {
         merged.isbn = result.isbn;
@@ -353,10 +351,11 @@ async function main() {
 
     // Формируем UPDATE только изменившихся полей
     const update = {};
-    if (needPages && merged.pages != null) update.pages = merged.pages;
-    if (needYear  && merged.year  != null) update.year  = merged.year;
-    if (needSpice && merged.spice != null) update.spice = merged.spice;
-    if (!book.isbn && merged.isbn)         update.isbn  = merged.isbn;
+    if (needPages && merged.pages != null)             update.pages       = merged.pages;
+    if (needYear  && merged.year  != null)             update.year        = merged.year;
+    if (needSpice && merged.spice != null)             update.spice       = merged.spice;
+    if (needDesc  && merged.description)               update.description = merged.description; // ✅ Исправлено
+    if (!book.isbn && merged.isbn)                     update.isbn        = merged.isbn;
 
     if (Object.keys(update).length === 0) {
       console.log(`  ⚠️  Ничего не найдено\n`);
@@ -396,7 +395,6 @@ async function main() {
     await sleep(800);
   }
 
-  // ── Итог ──
   console.log('\n═══════════════════════════════════════');
   console.log(`✅ Полностью: ${success}`);
   console.log(`⚠️  Частично: ${partial}`);
