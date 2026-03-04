@@ -435,8 +435,94 @@ export default function LibraryPage() {
             );
           })}
         </div>
-        <div className="flex flex-col gap-2">
-          {books.map((book) => renderBookCard(book))}
+        <div
+          style={{
+            display: 'flex',
+            gap: '10px',
+            overflowX: 'auto',
+            paddingBottom: '4px',
+          }}
+          className="scrollbar-hide"
+        >
+          {books.map((book) => {
+            const stats = getStats(book.bookId);
+            const progress = stats?.progress || 0;
+            return (
+              <div
+                key={book.bookId}
+                onClick={() => navigate(`/library/${book.bookId}`)}
+                style={{
+                  flexShrink: 0,
+                  width: '90px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ position: 'relative' }}>
+                  <BookCover
+                    src={book.cover}
+                    title={book.title}
+                    isbn={book.bookId}
+                    width={90}
+                    height={130}
+                    borderRadius="8px"
+                  />
+                  {progress > 0 && progress < 100 && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: '3px',
+                      borderRadius: '0 0 8px 8px',
+                      background: '#2a2520',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        width: `${progress}%`,
+                        height: '100%',
+                        background: accent,
+                      }} />
+                    </div>
+                  )}
+                  {progress === 100 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 6,
+                      background: '#6b9e7a',
+                      borderRadius: '50%',
+                      width: '18px',
+                      height: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '10px',
+                    }}>
+                      ✓
+                    </div>
+                  )}
+                </div>
+                <p style={{
+                  fontSize: '10px',
+                  color: '#e2ddd5',
+                  marginTop: '6px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  textAlign: 'center',
+                }}>
+                  {book.seriesNumber ? `#${book.seriesNumber}` : book.title}
+                </p>
+                <p style={{
+                  fontSize: '9px',
+                  color: muted,
+                  textAlign: 'center',
+                }}>
+                  {progress}%
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
