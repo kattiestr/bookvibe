@@ -35,39 +35,50 @@ type BookRow = {
 };
 
 async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | null> {
-  const { data, error } = await client
-    .from('books')
-    .select(`
-      id,
-      title,
-      author,
-      isbn,
-      cover_path,
-      spice,
-      pages,
-      year,
-      description,
-      series_number,
-      series ( name ),
-      book_tags ( tags ( slug, type ) ),
-      book_similar!book_similar_book_id_fkey ( similar_book_id )
-    `)
-    .order('title');
+  const allRows: BookRow[] = [];
+  const PAGE_SIZE = 1000;
+  let from = 0;
 
-  if (error || !data) {
-    console.error('Supabase fetch error:', error);
-    return null;
+  while (true) {
+    const { data, error } = await client
+      .from('books')
+      .select(`
+        id,
+        title,
+        author,
+        isbn,
+        cover_path,
+        spice,
+        pages,
+        year,
+        description,
+        series_number,
+        series ( name ),
+        book_tags ( tags ( slug, type ) ),
+        book_similar!book_similar_book_id_fkey ( similar_book_id )
+      `)
+      .order('title')
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error || !data) {
+      console.error('Supabase fetch error:', error);
+      return null;
+    }
+
+    allRows.push(...(data as unknown as BookRow[]));
+
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
 
-  const rows = data as unknown as BookRow[];
-  console.log('Всего книг пришло:', rows.length);
+  console.log('Всего книг пришло:', allRows.length);
 
   const idToTitle: Record<string, string> = {};
-  for (const row of rows) {
+  for (const row of allRows) {
     idToTitle[row.id] = row.title;
   }
 
-  return rows.map((row) => {
+  return allRows.map((row) => {
     const tropes: string[] = [];
     const genres: string[] = [];
     const mood: string[] = [];
