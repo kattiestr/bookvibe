@@ -27,6 +27,7 @@ type BookRow = {
   year: number | null;
   description: string | null;
   series_number: number | null;
+  language: string | null; // 👈 добавила
   series: { name: string } | null;
   book_tags: Array<{
     tags: { slug: string; type: string } | null;
@@ -53,6 +54,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
         year,
         description,
         series_number,
+        language,
         series ( name ),
         book_tags ( tags ( slug, type ) ),
         book_similar!book_similar_book_id_fkey ( similar_book_id )
@@ -111,6 +113,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       description: row.description ?? undefined,
       series: row.series?.name ?? undefined,
       seriesNumber: row.series_number ?? undefined,
+      language: row.language ?? 'en', // 👈 добавила
       tropes: tropes as Book['tropes'],
       genres: genres as Book['genres'],
       mood: mood as Book['mood'],
