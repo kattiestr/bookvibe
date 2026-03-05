@@ -59,7 +59,6 @@ function MonthlyReadsWidget({
   return (
     <div style={{
       marginTop: 24,
-      marginBottom: 24,
       padding: '16px',
       borderRadius: '16px',
       background: bg2,
@@ -175,19 +174,22 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
   const [sel, setSel] = useState<string | null>(null);
+  const [lang, setLang] = useState<'en' | 'ru'>('en'); // 👈 добавила
   const [greeting] = useState(() => getTimeGreeting());
 
   const readingBooks = library.filter((b) => b.status === 'reading');
   const monthlyReads = getMonthlyReads(library);
 
-  const books = sel
-    ? booksDatabase.filter((b) => {
-        const cat = CATEGORIES.find((c) => c.slug === sel);
-        if (!cat) return false;
-        if (cat.type === 'genre') return b.genres.includes(sel as any);
-        return b.tropes.includes(sel as any);
-      })
-    : booksDatabase;
+  // 👈 изменила фильтрацию — добавила язык
+  const books = booksDatabase
+    .filter((b) => b.language === lang)
+    .filter((b) => {
+      if (!sel) return true;
+      const cat = CATEGORIES.find((c) => c.slug === sel);
+      if (!cat) return false;
+      if (cat.type === 'genre') return b.genres.includes(sel as any);
+      return b.tropes.includes(sel as any);
+    });
 
   const toggle = (book: Book) => {
     isFavorite(book.id) ? removeFavorite(book.id) : addFavorite(book);
@@ -331,6 +333,44 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Language toggle 👈 добавила */}
+      <div style={{
+        display: 'flex',
+        gap: 8,
+        marginBottom: 16,
+      }}>
+        <button
+          onClick={() => setLang('en')}
+          style={{
+            padding: '6px 16px',
+            borderRadius: 20,
+            fontSize: 13,
+            cursor: 'pointer',
+            border: 'none',
+            background: lang === 'en' ? accent : bg2,
+            color: lang === 'en' ? '#141010' : muted,
+            fontWeight: lang === 'en' ? 700 : 400,
+          }}
+        >
+          🇬🇧 EN
+        </button>
+        <button
+          onClick={() => setLang('ru')}
+          style={{
+            padding: '6px 16px',
+            borderRadius: 20,
+            fontSize: 13,
+            cursor: 'pointer',
+            border: 'none',
+            background: lang === 'ru' ? accent : bg2,
+            color: lang === 'ru' ? '#141010' : muted,
+            fontWeight: lang === 'ru' ? 700 : 400,
+          }}
+        >
+          🇷🇺 RU
+        </button>
+      </div>
 
       {/* Category filter */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-6 scrollbar-hide">
