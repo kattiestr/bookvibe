@@ -19,41 +19,63 @@ export default function BookCard({ book, isFavorite, onToggleFavorite }: Props) 
   const libraryEntry = library.find((b) => b.bookId === book.id);
   const isRead = libraryEntry?.status === 'finished' || libraryEntry?.status === 'read-before';
   const rating = libraryEntry?.rating || 0;
+  const inLibrary = !!libraryEntry; // 👈 добавила
 
   return (
     <div
       onClick={() => navigate(`/book/${book.id}`)}
       style={{ cursor: 'pointer', position: 'relative' }}
     >
-      <BookCover
-        src={book.cover}
-        title={book.title}
-        author={book.author}
-        bookId={book.id}
-        borderRadius="10px"
-      />
+      <div style={{ position: 'relative' }}>
+        <BookCover
+          src={book.cover}
+          title={book.title}
+          author={book.author}
+          bookId={book.id}
+          borderRadius="10px"
+        />
 
-      {isRead && rating > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            background: 'rgba(20,16,16,0.7)',
-            borderRadius: '10px',
-            padding: '3px 6px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '3px',
-            backdropFilter: 'blur(4px)',
-          }}
-        >
-          <Star size={9} fill="#c9a84c" color="#c9a84c" />
-          <span style={{ fontSize: '10px', color: '#c9a84c', fontWeight: 700 }}>
-            {rating}
-          </span>
-        </div>
-      )}
+        {/* Оценка — не трогала */}
+        {isRead && rating > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              background: 'rgba(20,16,16,0.7)',
+              borderRadius: '10px',
+              padding: '3px 6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            <Star size={9} fill="#c9a84c" color="#c9a84c" />
+            <span style={{ fontSize: '10px', color: '#c9a84c', fontWeight: 700 }}>
+              {rating}
+            </span>
+          </div>
+        )}
+
+        {/* Бейджик библиотеки 👈 добавила */}
+        {inLibrary && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              background: 'rgba(20,16,16,0.75)',
+              borderRadius: '8px',
+              padding: '2px 6px',
+              backdropFilter: 'blur(4px)',
+              fontSize: '10px',
+            }}
+          >
+            📚
+          </div>
+        )}
+      </div>
 
       <p
         style={{
