@@ -625,7 +625,7 @@ export default function LibraryBookPage() {
           {book.dateReadBefore && (
             <p style={{ fontSize: '11px', color: '#6b9e7a', marginTop: '8px' }}>
               ✓ Marked as read in{' '}
-              {new Date(book.dateReadBefore + '-01').toLocaleDateString('en', {
+              {new Date(book.dateReadBefore + '-02').toLocaleDateString('en', {
                 month: 'long',
                 year: 'numeric',
               })}
