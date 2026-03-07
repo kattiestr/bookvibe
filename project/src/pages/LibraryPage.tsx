@@ -71,17 +71,15 @@ export default function LibraryPage() {
   const { library, getStats, updateBook } = useLibrary();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('library');
-  const scrollRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const saved = sessionStorage.getItem('library-scroll');
-    if (saved && scrollRef.current) {
-      scrollRef.current.scrollTop = parseInt(saved);
+    if (saved) {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(saved));
+      }, 50);
     }
     return () => {
-      if (scrollRef.current) {
-        sessionStorage.setItem('library-scroll', scrollRef.current.scrollTop.toString());
-      }
+      sessionStorage.setItem('library-scroll', window.scrollY.toString());
     };
   }, []);
 
@@ -910,7 +908,7 @@ export default function LibraryPage() {
   };
 
   return (
-    <div ref={scrollRef} className="max-w-lg mx-auto px-4 pt-8 pb-28" style={{ overflowY: 'auto', height: '100vh' }}>
+    <div className="max-w-lg mx-auto px-4 pt-8 pb-28">
       <h1
         style={{
           fontFamily: 'Playfair Display, serif',
