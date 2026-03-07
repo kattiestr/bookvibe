@@ -542,11 +542,14 @@ export default function LibraryBookPage() {
               if (s.key === 'dnf') {
                 setShowDNFModal(true);
               } else {
-                updateBook(book.bookId, { status: s.key });
                 const isFinishing =
                   s.key === 'finished' || s.key === 'read-before';
                 const wasNotFinished =
                   book.status !== 'finished' && book.status !== 'read-before';
+                updateBook(book.bookId, {
+                  status: s.key,
+                  dateFinished: isFinishing ? new Date().toISOString() : null,
+                });
                 if (isFinishing && wasNotFinished)
                   setTimeout(() => setShowCelebration(true), 300);
               }
