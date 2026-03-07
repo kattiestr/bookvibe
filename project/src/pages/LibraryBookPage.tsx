@@ -548,7 +548,7 @@ export default function LibraryBookPage() {
                   book.status !== 'finished' && book.status !== 'read-before';
                 updateBook(book.bookId, {
                   status: s.key,
-                  dateFinished: isFinishing ? new Date().toISOString() : null,
+                  dateFinished: s.key === 'finished' ? new Date().toISOString() : null,
                 });
                 if (isFinishing && wasNotFinished)
                   setTimeout(() => setShowCelebration(true), 300);
