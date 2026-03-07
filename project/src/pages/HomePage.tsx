@@ -4,6 +4,7 @@ import { useBooks } from '../hooks/BooksContext';
 import { useLibrary } from '../hooks/LibraryContext';
 import type { Book } from '../data/books';
 import BookCard from '../components/BookCard';
+import BookCover from '../components/BookCover';
 import { useFavorites } from '../hooks/useFavorites';
 import { getTimeGreeting } from '../components/SassyToast';
 
@@ -262,27 +263,17 @@ export default function HomePage() {
                     width: '100%',
                   }}
                 >
-                  {book.cover ? (
-                    <img
-                      src={book.cover}
-                      alt={book.title}
-                      style={{
-                        width: 48,
-                        height: 68,
-                        objectFit: 'cover',
-                        borderRadius: 6,
-                        flexShrink: 0,
-                      }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: 48,
-                      height: 68,
-                      borderRadius: 6,
-                      background: '#2a2520',
-                      flexShrink: 0,
-                    }} />
-                  )}
+                  <BookCover
+                    src={
+                      booksDatabase.find((db) => db.id === book.bookId)?.cover || book.cover
+                    }
+                    title={book.title}
+                    bookId={book.bookId}
+                    width={48}
+                    height={68}
+                    borderRadius="6px"
+                    style={{ flexShrink: 0 }}
+                  />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{
