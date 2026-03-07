@@ -30,10 +30,19 @@ function getMonthlyReads(library: any[]) {
 
   return library
     .filter((b) => {
-      if (!b.dateFinished) return false;
-      if (b.status !== 'finished') return false;
-      const d = new Date(b.dateFinished);
-      return d.getMonth() === month && d.getFullYear() === year;
+      // finished — смотрим на dateFinished
+      if (b.status === 'finished') {
+        if (!b.dateFinished) return false;
+        const d = new Date(b.dateFinished);
+        return d.getMonth() === month && d.getFullYear() === year;
+      }
+      // read-before — смотрим на dateReadBefore
+      if (b.status === 'read-before') {
+        if (!b.dateReadBefore) return false;
+        const [y, m] = b.dateReadBefore.split('-').map(Number);
+        return m - 1 === month && y === year;
+      }
+      return false;
     })
     .sort((a, b) => (b.rating || 0) - (a.rating || 0));
 }
