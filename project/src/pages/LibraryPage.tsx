@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLibrary } from '../hooks/LibraryContext';
 import type { ReadingStatus } from '../hooks/LibraryContext';
@@ -71,17 +71,20 @@ export default function LibraryPage() {
   const { library, getStats, updateBook } = useLibrary();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('library');
+
   useEffect(() => {
     const saved = sessionStorage.getItem('library-scroll');
     if (saved) {
       setTimeout(() => {
         window.scrollTo(0, parseInt(saved));
-      }, 50);
+      }, 100);
     }
-    return () => {
-      sessionStorage.setItem('library-scroll', window.scrollY.toString());
-    };
   }, []);
+
+  const saveScrollAndNavigate = (path: string) => {
+    sessionStorage.setItem('library-scroll', window.scrollY.toString());
+    navigate(path);
+  };
 
   const libraryBooks = library.filter((b) => b.status !== 'wishlist');
   const wishlistBooks = library.filter((b) => b.status === 'wishlist');
@@ -157,7 +160,7 @@ export default function LibraryPage() {
     return (
       <div
         key={book.bookId}
-        onClick={() => navigate(`/library/${book.bookId}`)}
+        onClick={() => saveScrollAndNavigate(`/library/${book.bookId}`)}
         style={{
           display: 'flex',
           gap: '14px',
@@ -419,8 +422,9 @@ export default function LibraryPage() {
                 key={num}
                 onClick={() => {
                   if (seriesBook && owned)
-                    navigate(`/library/${seriesBook.id}`);
-                  else if (seriesBook) navigate(`/book/${seriesBook.id}`);
+                    saveScrollAndNavigate(`/library/${seriesBook.id}`);
+                  else if (seriesBook)
+                    saveScrollAndNavigate(`/book/${seriesBook.id}`);
                 }}
                 style={{
                   width: '28px',
@@ -464,7 +468,7 @@ export default function LibraryPage() {
             return (
               <div
                 key={book.bookId}
-                onClick={() => navigate(`/library/${book.bookId}`)}
+                onClick={() => saveScrollAndNavigate(`/library/${book.bookId}`)}
                 style={{
                   flexShrink: 0,
                   width: '90px',
@@ -599,7 +603,6 @@ export default function LibraryPage() {
 
     return (
       <div>
-        {/* Header */}
         <div
           style={{
             padding: '14px 16px',
@@ -689,13 +692,7 @@ export default function LibraryPage() {
                 }}
               >
                 <p style={{ fontSize: '24px', marginBottom: '4px' }}>🎉</p>
-                <p
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#6b9e7a',
-                  }}
-                >
+                <p style={{ fontSize: '13px', fontWeight: 700, color: '#6b9e7a' }}>
                   TBR Complete!
                 </p>
                 <p style={{ fontSize: '10px', color: muted, marginTop: '2px' }}>
@@ -722,7 +719,6 @@ export default function LibraryPage() {
           </div>
         </div>
 
-        {/* Book list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {tbrBookIds.map((bookId, index) => {
             const libBook = library.find((b) => b.bookId === bookId);
@@ -757,11 +753,7 @@ export default function LibraryPage() {
                     height: '32px',
                     borderRadius: '50%',
                     flexShrink: 0,
-                    background: isRead
-                      ? '#6b9e7a'
-                      : isReading
-                      ? accent
-                      : '#2a2520',
+                    background: isRead ? '#6b9e7a' : isReading ? accent : '#2a2520',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -773,7 +765,7 @@ export default function LibraryPage() {
                   {isRead ? '✓' : index + 1}
                 </div>
                 <div
-                  onClick={() => navigate(`/library/${bookId}`)}
+                  onClick={() => saveScrollAndNavigate(`/library/${bookId}`)}
                   style={{ cursor: 'pointer', flexShrink: 0 }}
                 >
                   <BookCover
@@ -787,7 +779,7 @@ export default function LibraryPage() {
                   />
                 </div>
                 <div
-                  onClick={() => navigate(`/library/${bookId}`)}
+                  onClick={() => saveScrollAndNavigate(`/library/${bookId}`)}
                   style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
                 >
                   <p
@@ -801,20 +793,11 @@ export default function LibraryPage() {
                   >
                     {libBook.title}
                   </p>
-                  <p
-                    style={{ fontSize: '10px', color: muted, marginTop: '1px' }}
-                  >
+                  <p style={{ fontSize: '10px', color: muted, marginTop: '1px' }}>
                     {libBook.author}
                   </p>
                   {isRead && (
-                    <p
-                      style={{
-                        fontSize: '10px',
-                        color: '#6b9e7a',
-                        marginTop: '4px',
-                        fontWeight: 600,
-                      }}
-                    >
+                    <p style={{ fontSize: '10px', color: '#6b9e7a', marginTop: '4px', fontWeight: 600 }}>
                       {funMessages[index % funMessages.length]}
                     </p>
                   )}
@@ -844,13 +827,7 @@ export default function LibraryPage() {
                     </div>
                   )}
                   {!isRead && !isReading && (
-                    <p
-                      style={{
-                        fontSize: '9px',
-                        color: '#3a3530',
-                        marginTop: '4px',
-                      }}
-                    >
+                    <p style={{ fontSize: '9px', color: '#3a3530', marginTop: '4px' }}>
                       Waiting to be read...
                     </p>
                   )}
@@ -930,11 +907,7 @@ export default function LibraryPage() {
         track your reading journey
       </p>
 
-      {/* Stats */}
-      <div
-        className="grid grid-cols-4 gap-2 mb-6"
-        style={{ textAlign: 'center' }}
-      >
+      <div className="grid grid-cols-4 gap-2 mb-6" style={{ textAlign: 'center' }}>
         {[
           { label: 'Books', value: libraryBooks.length, emoji: '📚' },
           { label: 'Reading', value: reading, emoji: '📖' },
@@ -960,31 +933,16 @@ export default function LibraryPage() {
             }}
           >
             <span style={{ fontSize: '18px' }}>{s.emoji}</span>
-            <p
-              style={{
-                fontSize: '16px',
-                fontWeight: 700,
-                color: '#e2ddd5',
-                marginTop: '4px',
-              }}
-            >
+            <p style={{ fontSize: '16px', fontWeight: 700, color: '#e2ddd5', marginTop: '4px' }}>
               {s.value}
             </p>
-            <p
-              style={{
-                fontSize: '10px',
-                color: muted,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-              }}
-            >
+            <p style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               {s.label}
             </p>
           </div>
         ))}
       </div>
 
-      {/* View Toggle */}
       <div
         style={{
           display: 'flex',
@@ -1043,10 +1001,8 @@ export default function LibraryPage() {
         </button>
       </div>
 
-      {/* LIBRARY VIEW */}
       {viewMode === 'library' && (
         <>
-          {/* Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide">
             {LIBRARY_TABS.map((tab) => {
               const count = tab.key === 'tbr-list' ? tbrBookIds.length : 0;
@@ -1088,13 +1044,10 @@ export default function LibraryPage() {
               );
             })}
           </div>
-
-          {/* Content — TBR or Regular */}
           {filter === 'tbr-list' ? renderTBRView() : renderRegularList()}
         </>
       )}
 
-      {/* WISHLIST VIEW */}
       {viewMode === 'wishlist' && (
         <>
           {wishlistBooks.length === 0 ? (
@@ -1103,9 +1056,7 @@ export default function LibraryPage() {
               <p style={{ color: muted, fontSize: '14px', marginTop: '12px' }}>
                 Your wishlist is empty
               </p>
-              <p
-                style={{ color: '#3a3530', fontSize: '12px', marginTop: '4px' }}
-              >
+              <p style={{ color: '#3a3530', fontSize: '12px', marginTop: '4px' }}>
                 Add books you want to buy from any book page
               </p>
             </div>
@@ -1160,13 +1111,7 @@ export default function LibraryPage() {
                       >
                         {book.title}
                       </h3>
-                      <p
-                        style={{
-                          fontSize: '11px',
-                          color: muted,
-                          marginTop: '2px',
-                        }}
-                      >
+                      <p style={{ fontSize: '11px', color: muted, marginTop: '2px' }}>
                         {book.author}
                       </p>
                       <button
