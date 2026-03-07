@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLibrary } from '../hooks/LibraryContext';
 import type { ReadingStatus } from '../hooks/LibraryContext';
@@ -71,6 +71,19 @@ export default function LibraryPage() {
   const { library, getStats, updateBook } = useLibrary();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('library');
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem('library-scroll');
+    if (saved && scrollRef.current) {
+      scrollRef.current.scrollTop = parseInt(saved);
+    }
+    return () => {
+      if (scrollRef.current) {
+        sessionStorage.setItem('library-scroll', scrollRef.current.scrollTop.toString());
+      }
+    };
+  }, []);
 
   const libraryBooks = library.filter((b) => b.status !== 'wishlist');
   const wishlistBooks = library.filter((b) => b.status === 'wishlist');
@@ -897,7 +910,7 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-8 pb-28">
+    <div ref={scrollRef} className="max-w-lg mx-auto px-4 pt-8 pb-28" style={{ overflowY: 'auto', height: '100vh' }}>
       <h1
         style={{
           fontFamily: 'Playfair Display, serif',
