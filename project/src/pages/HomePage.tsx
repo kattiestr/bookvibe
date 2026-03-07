@@ -31,7 +31,7 @@ function getMonthlyReads(library: any[]) {
   return library
     .filter((b) => {
       if (!b.dateFinished) return false;
-      if (b.status !== 'finished' && b.status !== 'read-before') return false;
+      if (b.status !== 'finished') return false;
       const d = new Date(b.dateFinished);
       return d.getMonth() === month && d.getFullYear() === year;
     })
