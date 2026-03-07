@@ -31,13 +31,11 @@ function getMonthlyReads(library: any[]) {
 
   return library
     .filter((b) => {
-      // finished — смотрим на dateFinished
       if (b.status === 'finished') {
         if (!b.dateFinished) return false;
         const d = new Date(b.dateFinished);
         return d.getMonth() === month && d.getFullYear() === year;
       }
-      // read-before — смотрим на dateReadBefore
       if (b.status === 'read-before') {
         if (!b.dateReadBefore) return false;
         const [y, m] = b.dateReadBefore.split('-').map(Number);
@@ -58,9 +56,11 @@ function getRatingLabel(rating: number): { label: string; color: string } {
 function MonthlyReadsWidget({
   monthlyReads,
   navigate,
+  booksDatabase,
 }: {
   monthlyReads: any[];
   navigate: (path: string) => void;
+  booksDatabase: any[];
 }) {
   const [showAll, setShowAll] = useState(false);
   const medals = ['🥇', '🥈', '🥉'];
@@ -119,16 +119,14 @@ function MonthlyReadsWidget({
               }}>
                 {i < 3 ? medals[i] : `${i + 1}.`}
               </span>
-              <img
-                src={book.cover}
-                alt={book.title}
-                style={{
-                  width: 36,
-                  height: 52,
-                  objectFit: 'cover',
-                  borderRadius: 5,
-                  flexShrink: 0,
-                }}
+              <BookCover
+                src={booksDatabase.find((db) => db.id === book.bookId)?.cover || book.cover}
+                title={book.title}
+                bookId={book.bookId}
+                width={36}
+                height={52}
+                borderRadius="5px"
+                style={{ flexShrink: 0 }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{
@@ -184,13 +182,12 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
   const [sel, setSel] = useState<string | null>(null);
-  const [lang, setLang] = useState<'en' | 'ru'>('en'); // 👈 добавила
+  const [lang, setLang] = useState<'en' | 'ru'>('en');
   const [greeting] = useState(() => getTimeGreeting());
 
   const readingBooks = library.filter((b) => b.status === 'reading');
   const monthlyReads = getMonthlyReads(library);
 
-  // 👈 изменила фильтрацию — добавила язык
   const books = booksDatabase
     .filter((b) => b.language === lang)
     .filter((b) => {
@@ -224,7 +221,11 @@ export default function HomePage() {
 
       {/* This Month's Reads */}
       {monthlyReads.length > 0 && (
-        <MonthlyReadsWidget monthlyReads={monthlyReads} navigate={navigate} />
+        <MonthlyReadsWidget
+          monthlyReads={monthlyReads}
+          navigate={navigate}
+          booksDatabase={booksDatabase}
+        />
       )}
 
       {/* Continue Reading */}
@@ -334,7 +335,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Language toggle 👈 добавила */}
+      {/* Language toggle */}
       <div style={{
         display: 'flex',
         gap: 8,
