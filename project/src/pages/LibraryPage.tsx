@@ -110,6 +110,9 @@ export default function LibraryPage() {
     }
   };
 
+  const getActualCover = (bookId: string, fallback: string) =>
+    booksDatabase.find((db) => db.id === bookId)?.cover || fallback;
+
   const groupBooks = (books: typeof filtered) => {
     const seriesMap: Record<string, typeof filtered> = {};
     const standalone: typeof filtered = [];
@@ -157,9 +160,9 @@ export default function LibraryPage() {
         }}
       >
         <BookCover
-          src={book.cover}
+          src={getActualCover(book.bookId, book.cover)}
           title={book.title}
-          isbn={book.bookId}
+          bookId={book.bookId}
           width={56}
           height={84}
           borderRadius="8px"
@@ -459,9 +462,9 @@ export default function LibraryPage() {
               >
                 <div style={{ position: 'relative' }}>
                   <BookCover
-                    src={book.cover}
+                    src={getActualCover(book.bookId, book.cover)}
                     title={book.title}
-                    isbn={book.bookId}
+                    bookId={book.bookId}
                     width={90}
                     height={130}
                     borderRadius="8px"
@@ -763,9 +766,9 @@ export default function LibraryPage() {
                   style={{ cursor: 'pointer', flexShrink: 0 }}
                 >
                   <BookCover
-                    src={libBook.cover}
+                    src={getActualCover(bookId, libBook.cover)}
                     title={libBook.title}
-                    isbn={bookId}
+                    bookId={bookId}
                     width={44}
                     height={66}
                     borderRadius="6px"
@@ -1124,9 +1127,9 @@ export default function LibraryPage() {
                     }}
                   >
                     <BookCover
-                      src={book.cover}
+                      src={getActualCover(book.bookId, book.cover)}
                       title={book.title}
-                      isbn={book.bookId}
+                      bookId={book.bookId}
                       width={56}
                       height={84}
                       borderRadius="8px"
