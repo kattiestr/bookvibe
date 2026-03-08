@@ -109,36 +109,96 @@ export default function BookPage() {
     setSaving(true);
     const { client } = getSupabase();
     if (!client) { setSaving(false); return; }
-
-    const { error } = await client
+  
+    // 1. Обновляем основные поля книги
+    const { error: bookError } = await client
       .from('books')
       .update({
         title: editData.title,
         author: editData.author,
         description: editData.description,
-        pages: editData.pages,
-        year: editData.year,
+        pages: editData.pages || null,
+        year: editData.year || null,
         spice: editData.spice,
-        series_id: editData.series || null,
-        series_num: editData.seriesNumber || null,
-        vibes: editData.vibes,
-        tropes: editData.tropes,
-        mood: editData.mood,
       })
       .eq('id', book.id);
-
-    setSaving(false);
-
-    if (error) {
-      setSaveMsg('❌ Error: ' + error.message);
-    } else {
-      setSaveMsg('✅ Saved!');
-      if (refreshBooks) await refreshBooks();
-      setTimeout(() => {
-        setSaveMsg('');
-        setEditMode(false);
-      }, 1500);
+  
+    if (bookError) {
+      setSaving(false);
+      setSaveMsg('❌ Error: ' + bookError.message);
+      return;
     }
+  
+    // 2. Получаем все tag_id для этой книги
+    const { data: currentBookTags } = await client
+      .from('book_tags')
+      .select('tag_id')
+      .eq('book_id', book.id);
+  
+    const currentTagIds = currentBookTags?.map(bt => bt.tag_id) || [];
+  
+    // 3. Получаем теги типа trope/mood/vibe для этой книги
+    const { data: currentTags } = await client
+      .from('tags')
+      .select('id, type')
+      .in('id', currentTagIds)
+      .in('type', ['trope', 'mood', 'vibe']);
+  
+    const tagIdsToDelete = currentTags?.map(t => t.id) || [];
+  
+    // 4. Удаляем старые trope/mood/vibe теги из book_tags
+    if (tagIdsToDelete.length > 0) {
+      await client
+        .from('book_tags')
+        .delete()
+        .eq('book_id', book.id)
+        .in('tag_id', tagIdsToDelete);
+    }
+  
+    // 5. Собираем все новые теги
+    const allNewTags = [
+      ...editData.tropes.filter(s => s.trim()).map(slug => ({ slug: slug.trim(), type: 'trope' })),
+      ...editData.mood.filter(s => s.trim()).map(slug => ({ slug: slug.trim(), type: 'mood' })),
+      ...editData.vibes.filter(s => s.trim()).map(slug => ({ slug: slug.trim(), type: 'vibe' })),
+    ];
+  
+    // 6. Для каждого тега — находим или создаём, потом связываем
+    for (const tag of allNewTags) {
+      // Ищем существующий тег
+      const { data: existingTag } = await client
+        .from('tags')
+        .select('id')
+        .eq('slug', tag.slug)
+        .eq('type', tag.type)
+        .maybeSingle();
+  
+      let tagId = existingTag?.id;
+  
+      // Если не нашли — создаём новый
+      if (!tagId) {
+        const { data: newTag } = await client
+          .from('tags')
+          .insert({ slug: tag.slug, type: tag.type, name: tag.slug })
+          .select('id')
+          .single();
+        tagId = newTag?.id;
+      }
+  
+      // Связываем тег с книгой
+      if (tagId) {
+        await client
+          .from('book_tags')
+          .upsert({ book_id: book.id, tag_id: tagId });
+      }
+    }
+  
+    setSaving(false);
+    setSaveMsg('✅ Saved!');
+    await refreshBooks();
+    setTimeout(() => {
+      setSaveMsg('');
+      setEditMode(false);
+    }, 1500);
   };
 
   // ===== ADMIN EDIT PANEL =====
