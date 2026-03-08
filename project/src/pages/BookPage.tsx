@@ -3,29 +3,72 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBooks } from '../hooks/BooksContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { useLibrary } from '../hooks/LibraryContext';
+import { useAuth } from '../hooks/AuthContext';
 import { seriesDatabase } from '../data/series';
-import { ArrowLeft, BookOpen, Camera, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, BookOpen, Camera, ShoppingCart, Pencil, Check, X, Plus, Trash2 } from 'lucide-react';
 import BookCover from '../components/BookCover';
 import CoverChanger from '../components/CoverChanger';
 import BookArtGallery from '../components/BookArtGallery';
+import { getSupabase } from '../lib/supabaseClient';
 
 const accent = '#c4a07c';
 const muted = '#5c5450';
+const ADMIN_EMAIL = 'kattiestrokach@gmail.com';
 
 export default function BookPage() {
-  const { books: booksDatabase } = useBooks();
+  const { books: booksDatabase, refreshBooks } = useBooks();
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
   const { addToLibrary, isInLibrary, library } = useLibrary();
   const [showCoverChanger, setShowCoverChanger] = useState(false);
   const [overrideSrc, setOverrideSrc] = useState<string | null>(null);
 
+  const isAdmin = user?.email === ADMIN_EMAIL;
+
+  // Admin edit state
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+  const [editData, setEditData] = useState({
+    title: '',
+    author: '',
+    description: '',
+    pages: 0,
+    year: 0,
+    spice: 0,
+    series: '',
+    seriesNumber: 0,
+    vibes: [] as string[],
+    tropes: [] as string[],
+    mood: [] as string[],
+  });
+
   const book = booksDatabase.find((b) => b.id === id);
 
   useEffect(() => {
     setOverrideSrc(null);
+    setEditMode(false);
   }, [id]);
+
+  useEffect(() => {
+    if (book && editMode) {
+      setEditData({
+        title: book.title || '',
+        author: book.author || '',
+        description: book.description || '',
+        pages: book.pages || 0,
+        year: book.year || 0,
+        spice: book.spice || 0,
+        series: book.series || '',
+        seriesNumber: book.seriesNumber || 0,
+        vibes: book.vibes || [],
+        tropes: book.tropes || [],
+        mood: book.mood || [],
+      });
+    }
+  }, [editMode, book]);
 
   if (!book) {
     return (
@@ -36,12 +79,9 @@ export default function BookPage() {
   }
 
   const coverSrc = overrideSrc ?? book.cover;
-
   const similar = booksDatabase.filter(
-  (b) =>
-    book.similar?.includes(b.title) &&
-    !(book.series && b.series === book.series)
-);
+    (b) => book.similar?.includes(b.title) && !(book.series && b.series === book.series)
+  );
   const fav = isFavorite(book.id);
   const inLib = isInLibrary(book.id);
 
@@ -63,6 +103,418 @@ export default function BookPage() {
 
   const libraryBook = library.find((b) => b.bookId === book.id);
   const isWishlist = libraryBook?.status === 'wishlist';
+
+  // ===== SAVE TO SUPABASE =====
+  const saveChanges = async () => {
+    setSaving(true);
+    const { client } = getSupabase();
+    if (!client) { setSaving(false); return; }
+
+    const { error } = await client
+      .from('books')
+      .update({
+        title: editData.title,
+        author: editData.author,
+        description: editData.description,
+        pages: editData.pages,
+        year: editData.year,
+        spice: editData.spice,
+        series_id: editData.series || null,
+        series_num: editData.seriesNumber || null,
+        vibes: editData.vibes,
+        tropes: editData.tropes,
+        mood: editData.mood,
+      })
+      .eq('id', book.id);
+
+    setSaving(false);
+
+    if (error) {
+      setSaveMsg('❌ Error: ' + error.message);
+    } else {
+      setSaveMsg('✅ Saved!');
+      if (refreshBooks) await refreshBooks();
+      setTimeout(() => {
+        setSaveMsg('');
+        setEditMode(false);
+      }, 1500);
+    }
+  };
+
+  // ===== ADMIN EDIT PANEL =====
+  const renderAdminPanel = () => (
+    <div
+      style={{
+        background: '#1a1614',
+        border: '1px solid rgba(196,160,124,0.4)',
+        borderRadius: '16px',
+        padding: '20px',
+        marginBottom: '24px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h3 style={{ fontSize: '13px', color: accent, fontWeight: 700, letterSpacing: '0.1em' }}>
+          ⚙️ ADMIN EDIT
+        </h3>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={saveChanges}
+            disabled={saving}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '20px',
+              border: 'none',
+              cursor: 'pointer',
+              background: accent,
+              color: '#141010',
+              fontWeight: 700,
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <Check size={12} />
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+          <button
+            onClick={() => setEditMode(false)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '20px',
+              border: 'none',
+              cursor: 'pointer',
+              background: '#2a2520',
+              color: muted,
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <X size={12} /> Cancel
+          </button>
+        </div>
+      </div>
+
+      {saveMsg && (
+        <p style={{ fontSize: '12px', color: saveMsg.includes('✅') ? '#6b9e7a' : '#e74c3c', marginBottom: '12px' }}>
+          {saveMsg}
+        </p>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+        {/* Title */}
+        <div>
+          <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Title
+          </label>
+          <input
+            value={editData.title}
+            onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Author */}
+        <div>
+          <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Author
+          </label>
+          <input
+            value={editData.author}
+            onChange={(e) => setEditData({ ...editData, author: e.target.value })}
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Pages / Year / Spice */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+          <div>
+            <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Pages
+            </label>
+            <input
+              type="number"
+              value={editData.pages}
+              onChange={(e) => setEditData({ ...editData, pages: parseInt(e.target.value) || 0 })}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Year
+            </label>
+            <input
+              type="number"
+              value={editData.year}
+              onChange={(e) => setEditData({ ...editData, year: parseInt(e.target.value) || 0 })}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Spice 🌶️
+            </label>
+            <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setEditData({ ...editData, spice: n })}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    background: editData.spice >= n ? '#c4a07c33' : '#2a2520',
+                    color: editData.spice >= n ? accent : muted,
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Series / Series Number */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
+          <div>
+            <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Series
+            </label>
+            <input
+              value={editData.series}
+              onChange={(e) => setEditData({ ...editData, series: e.target.value })}
+              placeholder="Series name or empty"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              # in Series
+            </label>
+            <input
+              type="number"
+              value={editData.seriesNumber}
+              onChange={(e) => setEditData({ ...editData, seriesNumber: parseInt(e.target.value) || 0 })}
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Description
+          </label>
+          <textarea
+            value={editData.description}
+            onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+            rows={4}
+            style={{ ...inputStyle, resize: 'vertical', minHeight: '80px', fontFamily: 'inherit', lineHeight: 1.5 }}
+          />
+        </div>
+
+        {/* Vibes */}
+        <div>
+          <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Vibes ✨
+          </label>
+          {editData.vibes.map((vibe, i) => (
+            <div key={i} style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+              <input
+                value={vibe}
+                onChange={(e) => {
+                  const newVibes = [...editData.vibes];
+                  newVibes[i] = e.target.value;
+                  setEditData({ ...editData, vibes: newVibes });
+                }}
+                style={{ ...inputStyle, flex: 1, marginTop: 0 }}
+              />
+              <button
+                onClick={() => {
+                  const newVibes = editData.vibes.filter((_, idx) => idx !== i);
+                  setEditData({ ...editData, vibes: newVibes });
+                }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b4040' }}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => setEditData({ ...editData, vibes: [...editData.vibes, ''] })}
+            style={{
+              marginTop: '8px',
+              padding: '6px 14px',
+              borderRadius: '16px',
+              border: `1px dashed ${accent}55`,
+              background: 'none',
+              color: accent,
+              fontSize: '11px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <Plus size={12} /> Add Vibe
+          </button>
+        </div>
+
+        {/* Tropes */}
+        <div>
+          <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Tropes 🏷️
+          </label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+            {editData.tropes.map((trope, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '16px',
+                  background: '#2a2520',
+                  fontSize: '11px',
+                  color: '#e2ddd5',
+                }}
+              >
+                <input
+                  value={trope}
+                  onChange={(e) => {
+                    const newTropes = [...editData.tropes];
+                    newTropes[i] = e.target.value;
+                    setEditData({ ...editData, tropes: newTropes });
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    outline: 'none',
+                    color: '#e2ddd5',
+                    fontSize: '11px',
+                    width: `${Math.max(trope.length, 4)}ch`,
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    const newTropes = editData.tropes.filter((_, idx) => idx !== i);
+                    setEditData({ ...editData, tropes: newTropes });
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b4040', padding: 0 }}
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setEditData({ ...editData, tropes: [...editData.tropes, 'new-trope'] })}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '16px',
+                border: `1px dashed ${accent}55`,
+                background: 'none',
+                color: accent,
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <Plus size={10} /> Add
+            </button>
+          </div>
+        </div>
+
+        {/* Mood */}
+        <div>
+          <label style={{ fontSize: '10px', color: muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Mood 🎭
+          </label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+            {editData.mood.map((m, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '16px',
+                  background: '#1a1614',
+                  fontSize: '11px',
+                  color: muted,
+                }}
+              >
+                <input
+                  value={m}
+                  onChange={(e) => {
+                    const newMood = [...editData.mood];
+                    newMood[i] = e.target.value;
+                    setEditData({ ...editData, mood: newMood });
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    outline: 'none',
+                    color: muted,
+                    fontSize: '11px',
+                    width: `${Math.max(m.length, 4)}ch`,
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    const newMood = editData.mood.filter((_, idx) => idx !== i);
+                    setEditData({ ...editData, mood: newMood });
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b4040', padding: 0 }}
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setEditData({ ...editData, mood: [...editData.mood, 'new'] })}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '16px',
+                border: `1px dashed ${accent}55`,
+                background: 'none',
+                color: accent,
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <Plus size={10} /> Add
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: '1px solid #2a2520',
+    background: '#141010',
+    color: '#e2ddd5',
+    fontSize: '13px',
+    outline: 'none',
+    marginTop: '6px',
+  };
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-28">
@@ -217,9 +669,32 @@ export default function BookPage() {
               </span>
             )}
 
+            {/* Admin Edit Button */}
+            {isAdmin && !editMode && (
+              <button
+                onClick={() => setEditMode(true)}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(196,160,124,0.3)',
+                  cursor: 'pointer',
+                  background: 'rgba(196,160,124,0.1)',
+                  color: accent,
+                  fontSize: '11px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Pencil size={12} /> Edit Book
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Admin Panel */}
+      {isAdmin && editMode && renderAdminPanel()}
 
       {/* Vibes */}
       {book.vibes && book.vibes.length > 0 && (
