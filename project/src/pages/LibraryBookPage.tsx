@@ -900,7 +900,9 @@ export default function LibraryBookPage() {
             }}
           >
             <Play size={16} fill="#141010" />
-            {(stats?.sessionsCount || 0) > 0 ? 'Continue Reading' : 'Start Reading'}
+            {(stats?.sessionsCount || 0) > 0 || book.currentPage > 0 || book.status === 'reading'
+            ? 'Continue Reading'
+            : 'Start Reading'}
           </button>
         )}
 
