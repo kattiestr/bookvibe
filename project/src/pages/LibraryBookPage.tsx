@@ -67,6 +67,7 @@ export default function LibraryBookPage() {
 
   // Timer
   const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [sessionStartPage, setSessionStartPage] = useState(0);
   const [showEndSession, setShowEndSession] = useState(false);
@@ -74,6 +75,7 @@ export default function LibraryBookPage() {
   const [endPageInput, setEndPageInput] = useState('');
   const startTimeRef = useRef(0);
   const timerRef = useRef<number | null>(null);
+  const pausedSecondsRef = useRef(0);
 
   // Editing
   const [editingPages, setEditingPages] = useState(false);
@@ -132,10 +134,26 @@ export default function LibraryBookPage() {
     startTimeRef.current = Date.now();
     setSeconds(0);
     setIsRunning(true);
+    setIsPaused(false);
+    pausedSecondsRef.current = 0;
+  };
+
+  const pauseTimer = () => {
+    setIsRunning(false);
+    setIsPaused(true);
+    if (timerRef.current) clearInterval(timerRef.current);
+    pausedSecondsRef.current = seconds;
+  };
+
+  const resumeTimer = () => {
+    startTimeRef.current = Date.now() - pausedSecondsRef.current * 1000;
+    setIsRunning(true);
+    setIsPaused(false);
   };
 
   const stopTimer = () => {
     setIsRunning(false);
+    setIsPaused(false);
     if (timerRef.current) clearInterval(timerRef.current);
     setShowEndSession(true);
     setEndPageInput('');
@@ -548,7 +566,8 @@ export default function LibraryBookPage() {
                   book.status !== 'finished' && book.status !== 'read-before';
                 updateBook(book.bookId, {
                   status: s.key,
-                  dateFinished: s.key === 'finished' ? new Date().toISOString() : null,
+                  dateFinished:
+                    s.key === 'finished' ? new Date().toISOString() : null,
                 });
                 if (isFinishing && wasNotFinished)
                   setTimeout(() => setShowCelebration(true), 300);
@@ -623,7 +642,9 @@ export default function LibraryBookPage() {
             }}
           />
           {book.dateReadBefore && (
-            <p style={{ fontSize: '11px', color: '#6b9e7a', marginTop: '8px' }}>
+            <p
+              style={{ fontSize: '11px', color: '#6b9e7a', marginTop: '8px' }}
+            >
               ✓ Marked as read in{' '}
               {new Date(book.dateReadBefore + '-02').toLocaleDateString('en', {
                 month: 'long',
@@ -660,7 +681,10 @@ export default function LibraryBookPage() {
             value={dnfReason}
             onChange={(e) => {
               setDnfReason(e.target.value);
-              localStorage.setItem(`dnf-reason-${book.bookId}`, e.target.value);
+              localStorage.setItem(
+                `dnf-reason-${book.bookId}`,
+                e.target.value
+              );
             }}
             placeholder="Boring plot, annoying characters, too slow..."
             style={{
@@ -825,7 +849,11 @@ export default function LibraryBookPage() {
           background: '#1a1614',
           textAlign: 'center',
           marginBottom: '16px',
-          border: isRunning ? `1px solid ${accent}` : '1px solid #2a2520',
+          border: isRunning
+            ? `1px solid ${accent}`
+            : isPaused
+            ? '1px solid #8aa8d0'
+            : '1px solid #2a2520',
         }}
       >
         <p
@@ -844,15 +872,17 @@ export default function LibraryBookPage() {
             fontFamily: 'monospace',
             fontSize: '48px',
             fontWeight: 700,
-            color: isRunning ? accent : '#e2ddd5',
+            color: isRunning ? accent : isPaused ? '#8aa8d0' : '#e2ddd5',
             lineHeight: 1,
             marginBottom: '16px',
+            opacity: isPaused ? 0.7 : 1,
           }}
         >
           {fmt(seconds)}
         </p>
 
-        {!isRunning && !showEndSession && (
+        {/* Состояние 1: Не активен */}
+        {!isRunning && !isPaused && !showEndSession && (
           <button
             onClick={startTimer}
             style={{
@@ -869,31 +899,96 @@ export default function LibraryBookPage() {
               gap: '8px',
             }}
           >
-            <Play size={16} fill="#141010" /> Start Reading
+            <Play size={16} fill="#141010" />
+            {(stats?.sessionsCount || 0) > 0 ? 'Continue Reading' : 'Start Reading'}
           </button>
         )}
 
-        {isRunning && (
-          <button
-            onClick={stopTimer}
-            style={{
-              padding: '14px 40px',
-              borderRadius: '30px',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 600,
-              background: '#e74c3c',
-              color: '#fff',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <Pause size={16} /> Stop
-          </button>
+        {/* Состояние 2: Активен */}
+        {isRunning && !showEndSession && (
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button
+              onClick={pauseTimer}
+              style={{
+                padding: '14px 28px',
+                borderRadius: '30px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 600,
+                background: '#2a2520',
+                color: '#e2ddd5',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Pause size={16} /> Pause
+            </button>
+            <button
+              onClick={stopTimer}
+              style={{
+                padding: '14px 28px',
+                borderRadius: '30px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 600,
+                background: '#e74c3c',
+                color: '#fff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              End Session
+            </button>
+          </div>
         )}
 
+        {/* Состояние 3: Пауза */}
+        {isPaused && !showEndSession && (
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button
+              onClick={resumeTimer}
+              style={{
+                padding: '14px 28px',
+                borderRadius: '30px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 600,
+                background: accent,
+                color: '#141010',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Play size={16} fill="#141010" /> Resume
+            </button>
+            <button
+              onClick={stopTimer}
+              style={{
+                padding: '14px 28px',
+                borderRadius: '30px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 600,
+                background: '#e74c3c',
+                color: '#fff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              End Session
+            </button>
+          </div>
+        )}
+
+        {/* Состояние 4: После End Session */}
         {showEndSession && (
           <div style={{ marginTop: '12px' }}>
             <p
@@ -905,7 +1000,9 @@ export default function LibraryBookPage() {
             >
               What page did you stop at?
             </p>
-            <p style={{ fontSize: '11px', color: muted, marginBottom: '12px' }}>
+            <p
+              style={{ fontSize: '11px', color: muted, marginBottom: '12px' }}
+            >
               Started at page {sessionStartPage} · Read for {fmt(seconds)}
             </p>
             <input
@@ -927,7 +1024,11 @@ export default function LibraryBookPage() {
               }}
             />
             <div
-              style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}
+              style={{
+                display: 'flex',
+                gap: '8px',
+                justifyContent: 'center',
+              }}
             >
               <button
                 onClick={saveSession}
@@ -947,6 +1048,7 @@ export default function LibraryBookPage() {
               <button
                 onClick={() => {
                   setShowEndSession(false);
+                  setIsPaused(false);
                   setSeconds(0);
                 }}
                 style={{
@@ -990,7 +1092,8 @@ export default function LibraryBookPage() {
             },
             {
               label: 'Pages/Hour',
-              value: stats && stats.pagesPerHour > 0 ? stats.pagesPerHour : '—',
+              value:
+                stats && stats.pagesPerHour > 0 ? stats.pagesPerHour : '—',
               emoji: '📄',
             },
             {
@@ -1033,7 +1136,9 @@ export default function LibraryBookPage() {
             {
               label: 'Pages/Min',
               value:
-                stats && stats.pagesPerMinute > 0 ? stats.pagesPerMinute : '—',
+                stats && stats.pagesPerMinute > 0
+                  ? stats.pagesPerMinute
+                  : '—',
               emoji: '🚀',
             },
           ].map((s) => (
@@ -1218,7 +1323,6 @@ export default function LibraryBookPage() {
         />
       )}
 
-      {/* Cover Changer Modal */}
       {showCoverChanger && (
         <CoverChanger
           bookId={book.bookId}
