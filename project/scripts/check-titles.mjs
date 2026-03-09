@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const GOOGLE_BOOKS_KEY = process.env.VITE_GOOGLE_BOOKS_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -23,10 +24,9 @@ function titleMatch(found, expected) {
 
 async function searchGoogleBooks(title, author) {
   try {
-    // Ищем по автору — все его книги
     const query = encodeURIComponent(`intitle:"${title}" inauthor:"${author}"`);
     const res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=relevance`,
+      `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=relevance&key=${GOOGLE_BOOKS_KEY}`,
       { signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) return null;
@@ -56,21 +56,19 @@ async function main() {
     const items = await searchGoogleBooks(book.title, book.author);
 
     if (!items || items.length === 0) {
-      console.log(`  ⚠️  Автор не найден в Google Books\n`);
+      console.log(`  ⚠️  Не найдено в Google Books\n`);
       notFound.push(`"${book.title}" — ${book.author}`);
       await sleep(1000);
       continue;
     }
 
-    // Ищем точное совпадение названия
-    const exactMatch = items.find(item => 
+    const exactMatch = items.find(item =>
       titleMatch(item.volumeInfo?.title || '', book.title)
     );
 
     if (exactMatch) {
       console.log(`  ✅ Найдено: "${exactMatch.volumeInfo.title}"\n`);
     } else {
-      // Показываем что есть у этого автора
       const authorBooks = items
         .map(item => item.volumeInfo?.title)
         .filter(Boolean)
@@ -91,7 +89,7 @@ async function main() {
 
   console.log('\n═══════════════════════════════════════');
   console.log(`❌ Проблемные названия: ${problems.length}`);
-  console.log(`⚠️  Автор не найден: ${notFound.length}`);
+  console.log(`⚠️  Не найдено: ${notFound.length}`);
 
   if (problems.length > 0) {
     console.log('\n📋 Нужно проверить:');
@@ -103,7 +101,7 @@ async function main() {
   }
 
   if (notFound.length > 0) {
-    console.log('\n📋 Авторы не найдены в Google Books:');
+    console.log('\n📋 Не найдены в Google Books:');
     notFound.forEach(b => console.log(`  - ${b}`));
   }
 }
