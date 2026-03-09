@@ -1,5 +1,5 @@
-const NYT_KEY = 'qj7D4DgGKwYlWCX5a0LYGavAozSn4cqFR6rIaaoVxQAFR7sC';
-const G_KEY = 'AIzaSyAsZUAb_woaH5Kj6aT35KM5dt7fW-Foxrg';
+const NYT_KEY = import.meta.env.VITE_NYT_KEY;
+const G_KEY = import.meta.env.VITE_GOOGLE_BOOKS_KEY;
 const G_URL = 'https://www.googleapis.com/books/v1/volumes';
 
 export interface NYTBook {
