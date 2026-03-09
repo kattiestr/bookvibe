@@ -24,7 +24,7 @@ function titleMatch(found, expected) {
 async function searchGoogleBooks(title, author) {
   try {
     // Ищем по автору — все его книги
-    const query = encodeURIComponent(`inauthor:"${author}"`);
+    const query = encodeURIComponent(`intitle:"${title}" inauthor:"${author}"`);
     const res = await fetch(
       `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=40&orderBy=relevance`,
       { signal: AbortSignal.timeout(8000) }
