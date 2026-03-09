@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const HARDCOVER_TOKEN = process.env.HARDCOVER_TOKEN;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -183,7 +184,7 @@ async function fetchLitres(title, author) {
 async function fetchHardcover(title, author) {
   if (!HARDCOVER_TOKEN) return null;
   try {
-    const safeTitle  = title.replace(/"/g, '\\"');
+    const safeTitle = title.replace(/"/g, '\\"');
 
     const query = `
       query {
@@ -221,7 +222,6 @@ async function fetchHardcover(title, author) {
         .map(c => c.author?.name || '')
         .join(', ');
 
-      // ✅ Исправлено: используем author, а не safeAuthor
       if (!titleMatch(book.title || '', title).ok) continue;
       if (!authorMatch(foundAuthor, author)) continue;
 
@@ -246,6 +246,75 @@ async function fetchHardcover(title, author) {
 }
 
 // ════════════════════════════════════════
+// CLAUDE API — финальный fallback
+// ════════════════════════════════════════
+
+async function fetchClaude(title, author, needPages, needYear, needSpice, needDesc) {
+  if (!ANTHROPIC_API_KEY) return null;
+
+  try {
+    const isRussian = /[а-яё]/i.test(title + author);
+
+    const prompt = `You are a book database assistant. For the book "${title}" by ${author}, return ONLY a valid JSON object with these fields:
+{
+  ${needPages ? '"pages": <integer or null>,' : ''}
+  ${needYear  ? '"year": <integer or null>,' : ''}
+  ${needSpice ? '"spice": <integer 0-5 or null>,' : ''}
+  ${needDesc  ? `"description": "<string or null>"` : ''}
+}
+
+Rules:
+- pages: total number of pages in the standard edition (integer)
+- year: first publication year (integer, not reprint year)
+- spice: romance heat level (0=no romance, 1=clean romance only kissing, 2=some romance, 3=moderate steam closed door, 4=very steamy open door, 5=explicit erotica)
+- description: 2-3 sentence plot summary${isRussian ? ' in Russian' : ' in English'}
+- Use null if you are not confident about the value
+- Return ONLY the JSON object, no markdown, no explanation`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-api-key':         ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model:      'claude-3-5-haiku-20241022',
+        max_tokens: 400,
+        messages:   [{ role: 'user', content: prompt }],
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) {
+      console.log(`    Claude HTTP error: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const text = data?.content?.[0]?.text?.trim();
+    if (!text) return null;
+
+    // Чистим на случай если Claude добавил markdown
+    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    return {
+      pages:       parsed.pages       ?? null,
+      year:        parsed.year        ?? null,
+      spice:       parsed.spice       ?? null,
+      description: parsed.description ?? null,
+      isbn:        null,
+      source:      'Claude',
+      foundTitle:  title,
+    };
+  } catch (e) {
+    console.log(`    Claude error: ${e.message}`);
+    return null;
+  }
+}
+
+// ════════════════════════════════════════
 // MAIN
 // ════════════════════════════════════════
 
@@ -261,9 +330,10 @@ async function main() {
 
   if (error) { console.error('❌ Ошибка:', error); return; }
   console.log(`📚 Книг для обработки: ${books.length}\n`);
-  if (!HARDCOVER_TOKEN) {
-    console.log('⚠️  HARDCOVER_TOKEN не задан — Hardcover будет пропущен\n');
-  }
+
+  if (!HARDCOVER_TOKEN)    console.log('⚠️  HARDCOVER_TOKEN не задан — Hardcover будет пропущен');
+  if (!ANTHROPIC_API_KEY)  console.log('⚠️  ANTHROPIC_API_KEY не задан — Claude будет пропущен');
+  console.log('');
 
   let success = 0, partial = 0, failed = 0;
   const failedBooks  = [];
@@ -293,12 +363,14 @@ async function main() {
           { name: 'Hardcover',    fn: () => fetchHardcover(book.title, book.author) },
           { name: 'Google Books', fn: () => fetchGoogleBooks(book.title, book.author) },
           { name: 'OpenLibrary',  fn: () => fetchOpenLibrary(book.title, book.author) },
+          { name: 'Claude',       fn: () => fetchClaude(book.title, book.author, needPages, needYear, needSpice, needDesc) },
         ]
       : [
           { name: 'Hardcover',    fn: () => fetchHardcover(book.title, book.author) },
           { name: 'Google Books', fn: () => fetchGoogleBooks(book.title, book.author) },
           { name: 'OpenLibrary',  fn: () => fetchOpenLibrary(book.title, book.author) },
           { name: 'ЛитРес',      fn: () => fetchLitres(book.title, book.author) },
+          { name: 'Claude',       fn: () => fetchClaude(book.title, book.author, needPages, needYear, needSpice, needDesc) },
         ];
 
     for (const source of sources) {
@@ -340,7 +412,7 @@ async function main() {
       }
     }
 
-    // Если spice всё ещё не найден — пробуем по описанию
+    // Если spice всё ещё не найден — пробуем эвристику по описанию
     if (needSpice && merged.spice == null && merged.description) {
       const spice = estimateSpice(merged.description, book.title);
       if (spice != null) {
@@ -351,11 +423,11 @@ async function main() {
 
     // Формируем UPDATE только изменившихся полей
     const update = {};
-    if (needPages && merged.pages != null)             update.pages       = merged.pages;
-    if (needYear  && merged.year  != null)             update.year        = merged.year;
-    if (needSpice && merged.spice != null)             update.spice       = merged.spice;
-    if (needDesc  && merged.description)               update.description = merged.description; // ✅ Исправлено
-    if (!book.isbn && merged.isbn)                     update.isbn        = merged.isbn;
+    if (needPages && merged.pages != null)   update.pages       = merged.pages;
+    if (needYear  && merged.year  != null)   update.year        = merged.year;
+    if (needSpice && merged.spice != null)   update.spice       = merged.spice;
+    if (needDesc  && merged.description)     update.description = merged.description;
+    if (!book.isbn && merged.isbn)           update.isbn        = merged.isbn;
 
     if (Object.keys(update).length === 0) {
       console.log(`  ⚠️  Ничего не найдено\n`);
