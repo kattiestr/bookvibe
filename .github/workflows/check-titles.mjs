@@ -1,0 +1,25 @@
+name: Check Book Titles
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-titles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: project
+
+      - name: Run check-titles script
+        run: node scripts/check-titles.mjs
+        working-directory: project
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
