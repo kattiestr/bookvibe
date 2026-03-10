@@ -1,0 +1,26 @@
+name: Fix Book Titles
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-titles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: project
+
+      - name: Run fix-titles script
+        run: node scripts/fix-titles.mjs
+        working-directory: project
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VITE_GOOGLE_BOOKS_KEY: ${{ secrets.VITE_GOOGLE_BOOKS_KEY }}
