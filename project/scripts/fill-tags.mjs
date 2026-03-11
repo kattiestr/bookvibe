@@ -9,7 +9,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// ── Все допустимые slug из твоей БД ──
 const VALID_GENRES = [
   'fantasy-romance','dark-romance','contemporary-romance','romantasy',
   'paranormal-romance','historical-romance','sports-romance','romantic-suspense',
@@ -51,14 +50,17 @@ const VALID_TROPES = [
   'multiverse','clones','rebellion','virtual-reality','mad-scientist',
   'first-contact','coming-of-age','unreliable-memory','family-saga',
   'social-commentary','epistolary','magical-realism','tragic-ending',
-  'beautiful-prose','based-on-true-story','book-within-book','war-backdrop','philosophical',
+  'beautiful-prose','based-on-true-story','book-within-book','war-backdrop',
+  'philosophical',
+  // ── новый тег ──
+  'no-happy-ending',
 ];
 
-// ── Запрос к Claude ──
+// ── Запрос к Claude с web search ──
 async function analyzeBook(book) {
   const prompt = `You are a book tagging expert for a romance/fiction reading app.
 
-Analyze this book and return ONLY a valid JSON object, no explanation.
+Use your knowledge about this book to tag it accurately. Search your memory for details about the ending, tropes, and themes.
 
 Book:
 - Title: "${book.title}"
@@ -78,20 +80,27 @@ Return JSON with exactly these fields:
 }
 
 Rules:
-- genres: 1-3 items, only from this list: ${VALID_GENRES.join(', ')}
-- tropes: 3-8 most relevant, only from this list: ${VALID_TROPES.join(', ')}
-- mood: 2-4 items, only from this list: ${VALID_MOODS.join(', ')}
-- vibes: 3-5 short punchy BookTok-style strings with emojis. Like: "He's her enemy. He'd burn the world for her. 🔥" or "Slow burn that will have you screaming at 2am 😤"
-- description: 1-2 sentence engaging description in English, short and punchy
-- similar_titles: 2-4 titles of similar well-known books (title only, no author)
+- genres: 1-3 items, only from: ${VALID_GENRES.join(', ')}
+- tropes: 3-8 most relevant, only from: ${VALID_TROPES.join(', ')}
+- mood: 2-4 items, only from: ${VALID_MOODS.join(', ')}
+- vibes: 3-5 short punchy BookTok-style strings with emojis
+- description: 1-2 sentence engaging description in English
+- similar_titles: 2-4 titles of similar well-known books
+
+IMPORTANT RULES FOR no-happy-ending:
+- Add "no-happy-ending" to tropes ONLY if this is a STANDALONE book (not part of a series) where the main character(s) die or the romance does not resolve happily
+- Do NOT add it if it's book 1/2/3 of a series (story continues)
+- Do NOT add it if the book ends on a cliffhanger but continues in next book
+- Examples that GET this tag: "Me Before You", "The Fault in Our Stars", "Romeo and Juliet"
+- Examples that DON'T: "A Court of Thorns and Roses" (series), "Throne of Glass" (series)
 
 IMPORTANT:
-- Only use slugs from the lists provided, no custom values for genres/tropes/mood
+- Only use slugs from the lists provided
 - If book is in Russian, still return everything in English
 - Return ONLY the JSON, no markdown, no explanation`;
 
   const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5',
+    model: 'claude-opus-4-5',  // Opus лучше знает книги
     max_tokens: 1024,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -118,10 +127,6 @@ async function findBookIdByTitle(title, allBooks) {
   return found?.id || null;
 }
 
-// ════════════════════════════════════════
-// MAIN
-// ════════════════════════════════════════
-
 async function main() {
   console.log('🚀 Заполняем теги, тропы, mood, vibes через Claude AI...\n');
 
@@ -130,6 +135,22 @@ async function main() {
     .from('tags')
     .select('id, slug, type');
   if (tagsError) { console.error('❌ Ошибка загрузки тегов:', tagsError); return; }
+
+  // Убеждаемся что no-happy-ending существует в БД
+  const noHappyEndingExists = allTags.find(t => t.slug === 'no-happy-ending');
+  if (!noHappyEndingExists) {
+    console.log('➕ Создаём тег no-happy-ending...');
+    const { data: newTag } = await supabase
+      .from('tags')
+      .insert({ slug: 'no-happy-ending', name: 'No Happy Ending', type: 'trope' })
+      .select()
+      .single();
+    if (newTag) {
+      allTags.push(newTag);
+      console.log('✅ Тег создан!\n');
+    }
+  }
+
   console.log(`🏷️  Загружено тегов: ${allTags.length}`);
 
   // Загружаем все книги (для similar)
@@ -159,11 +180,8 @@ async function main() {
 
   // RU книги без EN пары — только русские авторы
   const ruOnlyBooks = ruBooks.filter(b => {
-    // Если серия совпадает с EN — это пара, пропускаем
     if (b.series_id && enSeriesIds.has(b.series_id)) return false;
-    // Если автор есть среди EN авторов — скорее всего есть EN пара, пропускаем
     if (enAuthors.has(b.author.toLowerCase().trim())) return false;
-    // Автора нет среди EN — русский автор, обрабатываем
     return true;
   });
 
@@ -190,7 +208,8 @@ async function main() {
   for (let i = 0; i < toProcess.length; i++) {
     const book = toProcess[i];
     const lang = book.language === 'ru' ? '🇷🇺' : '🇬🇧';
-    console.log(`[${i + 1}/${toProcess.length}] ${lang} "${book.title}" — ${book.author}`);
+    const isSeries = !!book.series_id;
+    console.log(`[${i + 1}/${toProcess.length}] ${lang} "${book.title}" — ${book.author} ${isSeries ? '(серия)' : '(одиночка)'}`);
 
     try {
       await sleep(500);
@@ -204,16 +223,24 @@ async function main() {
       const description = result.description || null;
       const similarTitles = result.similar_titles || [];
 
+      // Дополнительная защита: убираем no-happy-ending если это серия
+      const finalTropes = isSeries
+        ? validTropes.filter(t => t !== 'no-happy-ending')
+        : validTropes;
+
+      const hasNoHappyEnding = finalTropes.includes('no-happy-ending');
+
       console.log(`  🎭 Genres: ${validGenres.join(', ')}`);
-      console.log(`  🌶️  Tropes: ${validTropes.slice(0, 4).join(', ')}...`);
+      console.log(`  🌶️  Tropes: ${finalTropes.slice(0, 4).join(', ')}${finalTropes.length > 4 ? '...' : ''}`);
       console.log(`  💭 Mood:   ${validMoods.join(', ')}`);
+      if (hasNoHappyEnding) console.log(`  💔 NO HAPPY ENDING помечена!`);
 
       // Получаем ID тегов
       const genreIds = await getTagIds(validGenres, allTags);
-      const tropeIds = await getTagIds(validTropes, allTags);
-      const moodIds  = await getTagIds(validMoods,  allTags);
+      const tropeIds = await getTagIds(finalTropes, allTags);
+      const moodIds  = await getTagIds(validMoods, allTags);
 
-      // Vibes — ищем или создаём в таблице tags
+      // Vibes — ищем или создаём
       const vibeIds = [];
       for (const vibe of vibes) {
         const slug = vibe
