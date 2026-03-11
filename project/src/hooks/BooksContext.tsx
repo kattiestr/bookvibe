@@ -27,10 +27,10 @@ type BookRow = {
   year: number | null;
   description: string | null;
   series_number: number | null;
-  language: string | null; // 👈 добавила
+  language: string | null;
   series: { name: string } | null;
   book_tags: Array<{
-    tags: { slug: string; type: string } | null;
+    tags: { slug: string; name: string; type: string } | null;
   }>;
   book_similar: Array<{ similar_book_id: string }>;
 };
@@ -56,7 +56,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
         series_number,
         language,
         series ( name ),
-        book_tags ( tags ( slug, type ) ),
+        book_tags ( tags ( slug, name, type ) ),
         book_similar!book_similar_book_id_fkey ( similar_book_id )
       `)
       .order('title')
@@ -88,11 +88,11 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
 
     for (const bt of row.book_tags) {
       if (!bt.tags) continue;
-      const { slug, type } = bt.tags;
+      const { slug, name, type } = bt.tags;
       if (type === 'trope') tropes.push(slug);
       else if (type === 'genre') genres.push(slug);
       else if (type === 'mood') mood.push(slug);
-      else if (type === 'vibe') vibes.push(slug);
+      else if (type === 'vibe') vibes.push(name); // ✅ name — красивый текст
     }
 
     const similar = row.book_similar
@@ -113,7 +113,7 @@ async function fetchBooksFromSupabase(client: SupabaseClient): Promise<Book[] | 
       description: row.description ?? undefined,
       series: row.series?.name ?? undefined,
       seriesNumber: row.series_number ?? undefined,
-      language: row.language ?? 'en', // 👈 добавила
+      language: row.language ?? 'en',
       tropes: tropes as Book['tropes'],
       genres: genres as Book['genres'],
       mood: mood as Book['mood'],
