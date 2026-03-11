@@ -51,24 +51,40 @@ const VALID_TROPES = [
   'first-contact','coming-of-age','unreliable-memory','family-saga',
   'social-commentary','epistolary','magical-realism','tragic-ending',
   'beautiful-prose','based-on-true-story','book-within-book','war-backdrop',
-  'philosophical',
-  // ── новый тег ──
-  'no-happy-ending',
+  'philosophical','no-happy-ending',
 ];
 
-// ── Запрос к Claude с web search ──
-async function analyzeBook(book) {
-  const prompt = `You are a book tagging expert for a romance/fiction reading app.
+async function ensureTagExists(slug, type) {
+  const { data: existing } = await supabase
+    .from('tags')
+    .select('id')
+    .eq('slug', slug)
+    .eq('type', type)
+    .maybeSingle();
 
-Use your knowledge about this book to tag it accurately. Search your memory for details about the ending, tropes, and themes.
+  if (existing) return existing.id;
+
+  const name = slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const { data: newTag } = await supabase
+    .from('tags')
+    .insert({ slug, name, type })
+    .select('id')
+    .single();
+
+  return newTag?.id || null;
+}
+
+async function analyzeBook(book, isSeries) {
+  const prompt = `You are a book tagging expert for a romance/fiction reading app.
+You have deep knowledge of published books — their plots, tropes, themes, and endings.
 
 Book:
 - Title: "${book.title}"
 - Author: "${book.author}"
 - Description: "${book.description || 'No description available'}"
-- Language: ${book.language}
+- Is part of a series: ${isSeries ? 'YES' : 'NO — this is a standalone book'}
 
-Return JSON with exactly these fields:
+Return ONLY a valid JSON object with exactly these fields:
 
 {
   "genres": [...],
@@ -83,24 +99,24 @@ Rules:
 - genres: 1-3 items, only from: ${VALID_GENRES.join(', ')}
 - tropes: 3-8 most relevant, only from: ${VALID_TROPES.join(', ')}
 - mood: 2-4 items, only from: ${VALID_MOODS.join(', ')}
-- vibes: 3-5 short punchy BookTok-style strings with emojis
-- description: 1-2 sentence engaging description in English
+- vibes: 3-5 items. These are SHORT punchy sentences in English that make a reader want to pick up this book RIGHT NOW. Write like a BookTok creator — with emotion, intrigue, no spoilers. Use emojis. NO dashes between words. Full sentences only. Examples:
+  "He's her enemy. He'd burn the world for her. 🔥"
+  "Slow burn so good you'll be screaming at 2am 😤"
+  "Dark, possessive, and absolutely unhinged — in the best way 🖤"
+  "She thought she hated him. She was so wrong. 💀"
+  "If you like your heroes morally grey and obsessed, this is for you 😈"
+- description: 1-2 sentences, punchy and engaging, in English, no spoilers
 - similar_titles: 2-4 titles of similar well-known books
 
-IMPORTANT RULES FOR no-happy-ending:
-- Add "no-happy-ending" to tropes ONLY if this is a STANDALONE book (not part of a series) where the main character(s) die or the romance does not resolve happily
-- Do NOT add it if it's book 1/2/3 of a series (story continues)
-- Do NOT add it if the book ends on a cliffhanger but continues in next book
-- Examples that GET this tag: "Me Before You", "The Fault in Our Stars", "Romeo and Juliet"
-- Examples that DON'T: "A Court of Thorns and Roses" (series), "Throne of Glass" (series)
+IMPORTANT — "no-happy-ending" tag:
+- Add it ONLY if this is a STANDALONE book where the main character(s) die or the romance ends tragically with no resolution
+- Do NOT add it if it is part of a series — the story continues in the next book
+- Examples WITH this tag: "Me Before You", "The Fault in Our Stars", "Flowers for Algernon"
 
-IMPORTANT:
-- Only use slugs from the lists provided
-- If book is in Russian, still return everything in English
-- Return ONLY the JSON, no markdown, no explanation`;
+Return ONLY the JSON, no markdown, no explanation.`;
 
   const message = await anthropic.messages.create({
-    model: 'claude-opus-4-5',  // Opus лучше знает книги
+    model: 'claude-opus-4-5',
     max_tokens: 1024,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -110,55 +126,21 @@ IMPORTANT:
   return JSON.parse(cleaned);
 }
 
-// ── Получить tag_id по slug ──
-async function getTagIds(slugs, allTags) {
-  return slugs
-    .map(slug => allTags.find(t => t.slug === slug)?.id)
-    .filter(Boolean);
-}
-
-// ── Найти book_id по названию ──
 async function findBookIdByTitle(title, allBooks) {
   const normalize = s => s.toLowerCase().trim();
-  const found = allBooks.find(b =>
+  return allBooks.find(b =>
     normalize(b.title).includes(normalize(title)) ||
     normalize(title).includes(normalize(b.title))
-  );
-  return found?.id || null;
+  )?.id || null;
 }
 
 async function main() {
-  console.log('🚀 Заполняем теги, тропы, mood, vibes через Claude AI...\n');
+  console.log('🚀 Заполняем теги через Claude AI...\n');
 
-  // Загружаем все теги из БД
-  const { data: allTags, error: tagsError } = await supabase
-    .from('tags')
-    .select('id, slug, type');
-  if (tagsError) { console.error('❌ Ошибка загрузки тегов:', tagsError); return; }
-
-  // Убеждаемся что no-happy-ending существует в БД
-  const noHappyEndingExists = allTags.find(t => t.slug === 'no-happy-ending');
-  if (!noHappyEndingExists) {
-    console.log('➕ Создаём тег no-happy-ending...');
-    const { data: newTag } = await supabase
-      .from('tags')
-      .insert({ slug: 'no-happy-ending', name: 'No Happy Ending', type: 'trope' })
-      .select()
-      .single();
-    if (newTag) {
-      allTags.push(newTag);
-      console.log('✅ Тег создан!\n');
-    }
-  }
-
-  console.log(`🏷️  Загружено тегов: ${allTags.length}`);
-
-  // Загружаем все книги (для similar)
-  const { data: allBooks, error: booksError } = await supabase
+  // Загружаем все книги для similar
+  const { data: allBooks } = await supabase
     .from('books')
-    .select('id, title, language');
-  if (booksError) { console.error('❌ Ошибка загрузки книг:', booksError); return; }
-  console.log(`📚 Всего книг в БД: ${allBooks.length}`);
+    .select('id, title');
 
   // Загружаем EN книги
   const { data: enBooks } = await supabase
@@ -174,18 +156,17 @@ async function main() {
     .eq('language', 'ru')
     .order('title');
 
-  // Собираем series_id и авторов EN книг
   const enSeriesIds = new Set(enBooks.map(b => b.series_id).filter(Boolean));
   const enAuthors = new Set(enBooks.map(b => b.author.toLowerCase().trim()));
 
-  // RU книги без EN пары — только русские авторы
+  // RU книги только русских авторов без EN пары
   const ruOnlyBooks = ruBooks.filter(b => {
     if (b.series_id && enSeriesIds.has(b.series_id)) return false;
     if (enAuthors.has(b.author.toLowerCase().trim())) return false;
     return true;
   });
 
-  // Проверяем какие книги уже имеют теги
+  // Книги уже с тегами
   const { data: existingBookTags } = await supabase
     .from('book_tags')
     .select('book_id');
@@ -196,79 +177,83 @@ async function main() {
     ...ruOnlyBooks.filter(b => !taggedBookIds.has(b.id)),
   ];
 
-  const enCount = enBooks.filter(b => !taggedBookIds.has(b.id)).length;
-  const ruCount = ruOnlyBooks.filter(b => !taggedBookIds.has(b.id)).length;
-
-  console.log(`\n📖 Книг для обработки: ${toProcess.length}`);
-  console.log(`   (${enCount} EN + ${ruCount} RU без EN пары)\n`);
+  console.log(`📚 Всего книг в БД: ${allBooks.length}`);
+  console.log(`📖 Книг для обработки: ${toProcess.length}`);
+  console.log(`   EN: ${enBooks.filter(b => !taggedBookIds.has(b.id)).length}`);
+  console.log(`   RU (без EN пары): ${ruOnlyBooks.filter(b => !taggedBookIds.has(b.id)).length}\n`);
 
   let success = 0, failed = 0;
   const failedBooks = [];
 
   for (let i = 0; i < toProcess.length; i++) {
     const book = toProcess[i];
-    const lang = book.language === 'ru' ? '🇷🇺' : '🇬🇧';
     const isSeries = !!book.series_id;
-    console.log(`[${i + 1}/${toProcess.length}] ${lang} "${book.title}" — ${book.author} ${isSeries ? '(серия)' : '(одиночка)'}`);
+    const lang = book.language === 'ru' ? '🇷🇺' : '🇬🇧';
+    const type = isSeries ? '📚 серия' : '📕 одиночка';
+
+    console.log(`[${i + 1}/${toProcess.length}] ${lang} ${type} — "${book.title}" by ${book.author}`);
 
     try {
       await sleep(500);
-      const result = await analyzeBook(book);
+      const result = await analyzeBook(book, isSeries);
 
-      // Валидируем результат
       const validGenres = (result.genres || []).filter(s => VALID_GENRES.includes(s));
-      const validTropes = (result.tropes || []).filter(s => VALID_TROPES.includes(s));
       const validMoods  = (result.mood   || []).filter(s => VALID_MOODS.includes(s));
+      let   validTropes = (result.tropes || []).filter(s => VALID_TROPES.includes(s));
       const vibes       = (result.vibes  || []).slice(0, 5);
       const description = result.description || null;
       const similarTitles = result.similar_titles || [];
 
-      // Дополнительная защита: убираем no-happy-ending если это серия
-      const finalTropes = isSeries
-        ? validTropes.filter(t => t !== 'no-happy-ending')
-        : validTropes;
-
-      const hasNoHappyEnding = finalTropes.includes('no-happy-ending');
-
-      console.log(`  🎭 Genres: ${validGenres.join(', ')}`);
-      console.log(`  🌶️  Tropes: ${finalTropes.slice(0, 4).join(', ')}${finalTropes.length > 4 ? '...' : ''}`);
-      console.log(`  💭 Mood:   ${validMoods.join(', ')}`);
-      if (hasNoHappyEnding) console.log(`  💔 NO HAPPY ENDING помечена!`);
-
-      // Получаем ID тегов
-      const genreIds = await getTagIds(validGenres, allTags);
-      const tropeIds = await getTagIds(finalTropes, allTags);
-      const moodIds  = await getTagIds(validMoods, allTags);
-
-      // Vibes — ищем или создаём
-      const vibeIds = [];
-      for (const vibe of vibes) {
-        const slug = vibe
-          .toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, '')
-          .replace(/\s+/g, '-')
-          .slice(0, 80);
-
-        let existing = allTags.find(t => t.slug === slug && t.type === 'vibe');
-        if (!existing) {
-          const { data: newTag } = await supabase
-            .from('tags')
-            .insert({ slug, name: vibe, type: 'vibe' })
-            .select()
-            .single();
-          if (newTag) {
-            allTags.push(newTag);
-            existing = newTag;
-          }
-        }
-        if (existing) vibeIds.push(existing.id);
+      // Защита: серия никогда не получает no-happy-ending
+      if (isSeries) {
+        validTropes = validTropes.filter(t => t !== 'no-happy-ending');
       }
 
-      const allTagIds = [...new Set([...genreIds, ...tropeIds, ...moodIds, ...vibeIds])];
+      console.log(`  🎭 Genres: ${validGenres.join(', ')}`);
+      console.log(`  🌶️  Tropes: ${validTropes.join(', ')}`);
+      console.log(`  💭 Mood:   ${validMoods.join(', ')}`);
+      console.log(`  ✨ Vibes:  ${vibes.length} шт.`);
+      if (validTropes.includes('no-happy-ending')) {
+        console.log(`  💔 Помечена как NO HAPPY ENDING`);
+      }
+
+      // Собираем все tag_id
+      const allTagIds = [];
+
+      // Genres
+      for (const slug of validGenres) {
+        const id = await ensureTagExists(slug, 'genre');
+        if (id) allTagIds.push(id);
+      }
+
+      // Tropes
+      for (const slug of validTropes) {
+        const id = await ensureTagExists(slug, 'trope');
+        if (id) allTagIds.push(id);
+      }
+
+      // Moods
+      for (const slug of validMoods) {
+        const id = await ensureTagExists(slug, 'mood');
+        if (id) allTagIds.push(id);
+      }
+
+      // Vibes — slug уникальный, name — красивый текст
+      for (const vibe of vibes) {
+        const slug = `vibe-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const { data: newTag } = await supabase
+          .from('tags')
+          .insert({ slug, name: vibe, type: 'vibe' })
+          .select('id')
+          .single();
+        if (newTag) allTagIds.push(newTag.id);
+        await sleep(50);
+      }
 
       // Сохраняем book_tags
       if (allTagIds.length > 0) {
-        const bookTagRows = allTagIds.map(tag_id => ({ book_id: book.id, tag_id }));
+        const uniqueIds = [...new Set(allTagIds)];
+        const bookTagRows = uniqueIds.map(tag_id => ({ book_id: book.id, tag_id }));
         await supabase.from('book_tags').upsert(bookTagRows, { onConflict: 'book_id,tag_id' });
       }
 
@@ -290,17 +275,16 @@ async function main() {
         }
       }
 
-      // Копируем теги в RU пару (если это EN книга)
+      // Копируем в RU пару если это EN книга из серии
       if (book.language === 'en' && book.series_id) {
         const ruPair = ruBooks.find(b =>
           b.series_id === book.series_id &&
           b.series_number === book.series_number
         );
         if (ruPair) {
-          if (allTagIds.length > 0) {
-            const ruTagRows = allTagIds.map(tag_id => ({ book_id: ruPair.id, tag_id }));
-            await supabase.from('book_tags').upsert(ruTagRows, { onConflict: 'book_id,tag_id' });
-          }
+          const uniqueIds = [...new Set(allTagIds)];
+          const ruTagRows = uniqueIds.map(tag_id => ({ book_id: ruPair.id, tag_id }));
+          await supabase.from('book_tags').upsert(ruTagRows, { onConflict: 'book_id,tag_id' });
           if (description) {
             await supabase.from('books').update({ description }).eq('id', ruPair.id);
           }
@@ -320,7 +304,7 @@ async function main() {
     await sleep(1500);
   }
 
-  console.log('\n═══════════════════════════════════════');
+  console.log('═══════════════════════════════════════');
   console.log(`✅ Успешно: ${success}`);
   console.log(`❌ Ошибки:  ${failed}`);
 
