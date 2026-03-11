@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useBooks } from '../hooks/BooksContext';
 import { useLibrary } from '../hooks/LibraryContext';
 import type { Book } from '../data/books';
@@ -67,25 +67,9 @@ function MonthlyReadsWidget({
   const visible = showAll ? monthlyReads : monthlyReads.slice(0, 3);
 
   return (
-    <div style={{
-      marginTop: 24,
-      padding: '16px',
-      borderRadius: '16px',
-      background: bg2,
-      border: '1px solid #2a2520',
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 14,
-      }}>
-        <p style={{
-          fontSize: 11,
-          textTransform: 'uppercase',
-          letterSpacing: '0.15em',
-          color: muted,
-        }}>
+    <div style={{ marginTop: 24, padding: '16px', borderRadius: '16px', background: bg2, border: '1px solid #2a2520' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: muted }}>
           📚 This Month's Reads
         </p>
         <span style={{ fontSize: 11, color: accent, fontWeight: 600 }}>
@@ -97,56 +81,17 @@ function MonthlyReadsWidget({
         {visible.map((book, i) => {
           const { label, color } = getRatingLabel(book.rating || 0);
           return (
-            <div
-              key={book.bookId}
-              onClick={() => navigate(`/library/${book.bookId}`)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                cursor: 'pointer',
-                padding: '8px',
-                borderRadius: '10px',
-                background: i < 3 ? 'rgba(196,160,124,0.04)' : 'transparent',
-              }}
-            >
-              <span style={{
-                fontSize: i < 3 ? 18 : 13,
-                flexShrink: 0,
-                width: 32,
-                textAlign: 'center',
-                color: i >= 3 ? muted : undefined,
-              }}>
+            <div key={book.bookId} onClick={() => navigate(`/library/${book.bookId}`)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px', borderRadius: '10px', background: i < 3 ? 'rgba(196,160,124,0.04)' : 'transparent' }}>
+              <span style={{ fontSize: i < 3 ? 18 : 13, flexShrink: 0, width: 32, textAlign: 'center', color: i >= 3 ? muted : undefined }}>
                 {i < 3 ? medals[i] : `${i + 1}.`}
               </span>
-              <BookCover
-                src={booksDatabase.find((db) => db.id === book.bookId)?.cover || book.cover}
-                title={book.title}
-                bookId={book.bookId}
-                width={36}
-                height={52}
-                borderRadius="5px"
-                style={{ flexShrink: 0 }}
-              />
+              <BookCover src={booksDatabase.find((db) => db.id === book.bookId)?.cover || book.cover} title={book.title} bookId={book.bookId} width={36} height={52} borderRadius="5px" style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: '#e2ddd5',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {book.title}
-                </p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#e2ddd5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
                 <p style={{ fontSize: 10, color: muted }}>{book.author}</p>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                {book.rating > 0 && (
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#c9a84c' }}>
-                    {book.rating}/10
-                  </p>
-                )}
+                {book.rating > 0 && <p style={{ fontSize: 13, fontWeight: 700, color: '#c9a84c' }}>{book.rating}/10</p>}
                 <p style={{ fontSize: 9, color, fontWeight: 600 }}>{label}</p>
               </div>
             </div>
@@ -155,20 +100,7 @@ function MonthlyReadsWidget({
       </div>
 
       {monthlyReads.length > 3 && (
-        <button
-          onClick={() => setShowAll(!showAll)}
-          style={{
-            width: '100%',
-            marginTop: 12,
-            padding: '8px',
-            borderRadius: '10px',
-            border: 'none',
-            cursor: 'pointer',
-            background: '#2a2520',
-            color: muted,
-            fontSize: 11,
-          }}
-        >
+        <button onClick={() => setShowAll(!showAll)} style={{ width: '100%', marginTop: 12, padding: '8px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: '#2a2520', color: muted, fontSize: 11 }}>
           {showAll ? '▲ Show less' : `▼ +${monthlyReads.length - 3} more books`}
         </button>
       )}
@@ -180,10 +112,19 @@ export default function HomePage() {
   const { books: booksDatabase } = useBooks();
   const { library, getStats } = useLibrary();
   const navigate = useNavigate();
+  const location = useLocation();
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
-  const [sel, setSel] = useState<string | null>(null);
   const [lang, setLang] = useState<'en' | 'ru'>('en');
   const [greeting] = useState(() => getTimeGreeting());
+
+  // Читаем trope или mood из URL параметров
+  const searchParams = new URLSearchParams(location.search);
+  const tropeParam = searchParams.get('trope');
+  const moodParam = searchParams.get('mood');
+  const [sel, setSel] = useState<string | null>(tropeParam || moodParam || null);
+  const [selType, setSelType] = useState<'trope' | 'mood' | 'category' | null>(
+    tropeParam ? 'trope' : moodParam ? 'mood' : null
+  );
 
   const readingBooks = library.filter((b) => b.status === 'reading');
   const monthlyReads = getMonthlyReads(library);
@@ -192,6 +133,9 @@ export default function HomePage() {
     .filter((b) => b.language === lang)
     .filter((b) => {
       if (!sel) return true;
+      if (selType === 'mood') return b.mood.includes(sel as any);
+      if (selType === 'trope') return b.tropes.includes(sel as any);
+      // category (из списка CATEGORIES)
       const cat = CATEGORIES.find((c) => c.slug === sel);
       if (!cat) return false;
       if (cat.type === 'genre') return b.genres.includes(sel as any);
@@ -204,128 +148,38 @@ export default function HomePage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-28">
-      <h1 style={{
-        fontFamily: 'Playfair Display, serif',
-        fontSize: 36,
-        fontWeight: 700,
-        color: '#e2ddd5',
-      }}>
+      <h1 style={{ fontFamily: 'Playfair Display, serif', fontSize: 36, fontWeight: 700, color: '#e2ddd5' }}>
         BookVibe
       </h1>
-      <p style={{ color: muted, fontSize: 13, marginTop: 2 }}>
-        find your next obsession
-      </p>
-      <p style={{ fontSize: 13, color: '#8a8480', fontStyle: 'italic', marginTop: 8 }}>
-        {greeting}
-      </p>
+      <p style={{ color: muted, fontSize: 13, marginTop: 2 }}>find your next obsession</p>
+      <p style={{ fontSize: 13, color: '#8a8480', fontStyle: 'italic', marginTop: 8 }}>{greeting}</p>
 
-      {/* This Month's Reads */}
       {monthlyReads.length > 0 && (
-        <MonthlyReadsWidget
-          monthlyReads={monthlyReads}
-          navigate={navigate}
-          booksDatabase={booksDatabase}
-        />
+        <MonthlyReadsWidget monthlyReads={monthlyReads} navigate={navigate} booksDatabase={booksDatabase} />
       )}
 
-      {/* Continue Reading */}
       {readingBooks.length > 0 && (
         <div style={{ marginTop: 28, marginBottom: 28 }}>
-          <p style={{
-            fontSize: 11,
-            textTransform: 'uppercase',
-            letterSpacing: '0.15em',
-            color: muted,
-            marginBottom: 12,
-          }}>
+          <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: muted, marginBottom: 12 }}>
             Continue Reading
           </p>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {readingBooks.map((book) => {
               const stats = getStats(book.bookId);
               const progress = stats?.progress ?? 0;
               const pagesLeft = stats?.pagesLeft ?? (book.totalPages - book.currentPage);
-
               return (
-                <button
-                  key={book.bookId}
-                  onClick={() => navigate(`/library/${book.bookId}`)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    padding: '14px 16px',
-                    borderRadius: 16,
-                    background: bg2,
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    width: '100%',
-                  }}
-                >
-                  <BookCover
-                    src={
-                      booksDatabase.find((db) => db.id === book.bookId)?.cover || book.cover
-                    }
-                    title={book.title}
-                    bookId={book.bookId}
-                    width={48}
-                    height={68}
-                    borderRadius="6px"
-                    style={{ flexShrink: 0 }}
-                  />
-
+                <button key={book.bookId} onClick={() => navigate(`/library/${book.bookId}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 16, background: bg2, border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
+                  <BookCover src={booksDatabase.find((db) => db.id === book.bookId)?.cover || book.cover} title={book.title} bookId={book.bookId} width={48} height={68} borderRadius="6px" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: '#e2ddd5',
-                      marginBottom: 2,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {book.title}
-                    </p>
-                    <p style={{ fontSize: 12, color: muted, marginBottom: 10 }}>
-                      {book.author}
-                    </p>
-
-                    <div style={{
-                      height: 4,
-                      borderRadius: 2,
-                      background: '#2a2520',
-                      marginBottom: 6,
-                      overflow: 'hidden',
-                    }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${progress}%`,
-                        borderRadius: 2,
-                        background: accent,
-                        transition: 'width 0.3s ease',
-                      }} />
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#e2ddd5', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</p>
+                    <p style={{ fontSize: 12, color: muted, marginBottom: 10 }}>{book.author}</p>
+                    <div style={{ height: 4, borderRadius: 2, background: '#2a2520', marginBottom: 6, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${progress}%`, borderRadius: 2, background: accent, transition: 'width 0.3s ease' }} />
                     </div>
-
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}>
-                      <p style={{ fontSize: 11, color: muted }}>
-                        page {book.currentPage} of {book.totalPages}
-                      </p>
-                      <span style={{
-                        fontSize: 11,
-                        color: '#4caf82',
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}>
-                        ▶ {pagesLeft} pages left
-                      </span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p style={{ fontSize: 11, color: muted }}>page {book.currentPage} of {book.totalPages}</p>
+                      <span style={{ fontSize: 11, color: '#4caf82', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>▶ {pagesLeft} pages left</span>
                     </div>
                   </div>
                 </button>
@@ -335,109 +189,49 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Language toggle */}
-      <div style={{
-        display: 'flex',
-        gap: 8,
-        marginBottom: 16,
-      }}>
-        <button
-          onClick={() => setLang('en')}
-          style={{
-            padding: '6px 16px',
-            borderRadius: 20,
-            fontSize: 13,
-            cursor: 'pointer',
-            border: 'none',
-            background: lang === 'en' ? accent : bg2,
-            color: lang === 'en' ? '#141010' : muted,
-            fontWeight: lang === 'en' ? 700 : 400,
-          }}
-        >
-          🇬🇧 EN
-        </button>
-        <button
-          onClick={() => setLang('ru')}
-          style={{
-            padding: '6px 16px',
-            borderRadius: 20,
-            fontSize: 13,
-            cursor: 'pointer',
-            border: 'none',
-            background: lang === 'ru' ? accent : bg2,
-            color: lang === 'ru' ? '#141010' : muted,
-            fontWeight: lang === 'ru' ? 700 : 400,
-          }}
-        >
-          🇷🇺 RU
-        </button>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setLang('en')} style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer', border: 'none', background: lang === 'en' ? accent : bg2, color: lang === 'en' ? '#141010' : muted, fontWeight: lang === 'en' ? 700 : 400 }}>🇬🇧 EN</button>
+        <button onClick={() => setLang('ru')} style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer', border: 'none', background: lang === 'ru' ? accent : bg2, color: lang === 'ru' ? '#141010' : muted, fontWeight: lang === 'ru' ? 700 : 400 }}>🇷🇺 RU</button>
       </div>
 
-      {/* Category filter */}
+      {/* Активный фильтр из trope/mood — показываем отдельно */}
+      {sel && selType !== 'category' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 11, color: accent, padding: '6px 14px', borderRadius: 20, background: 'rgba(196,160,124,0.12)' }}>
+            {selType === 'mood' ? '💭' : '🏷️'} {sel.split('-').join(' ')}
+          </span>
+          <button onClick={() => { setSel(null); setSelType(null); }} style={{ fontSize: 11, color: muted, background: 'none', border: 'none', cursor: 'pointer' }}>✕ clear</button>
+        </div>
+      )}
+
       <div className="flex gap-2 overflow-x-auto pb-3 mb-6 scrollbar-hide">
         <button
-          onClick={() => setSel(null)}
-          style={{
-            padding: '8px 20px',
-            borderRadius: 20,
-            fontSize: 11,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            whiteSpace: 'nowrap',
-            cursor: 'pointer',
-            border: 'none',
-            background: !sel ? accent : bg2,
-            color: !sel ? '#141010' : muted,
-            fontWeight: !sel ? 700 : 400,
-          }}
+          onClick={() => { setSel(null); setSelType(null); }}
+          style={{ padding: '8px 20px', borderRadius: 20, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', cursor: 'pointer', border: 'none', background: !sel ? accent : bg2, color: !sel ? '#141010' : muted, fontWeight: !sel ? 700 : 400 }}
         >
           All
         </button>
         {CATEGORIES.map((cat) => (
           <button
             key={cat.slug}
-            onClick={() => setSel(sel === cat.slug ? null : cat.slug)}
-            style={{
-              padding: '8px 20px',
-              borderRadius: 20,
-              fontSize: 11,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              whiteSpace: 'nowrap',
-              cursor: 'pointer',
-              border: 'none',
-              background: sel === cat.slug ? accent : bg2,
-              color: sel === cat.slug ? '#141010' : muted,
-              fontWeight: sel === cat.slug ? 700 : 400,
-            }}
+            onClick={() => { setSel(sel === cat.slug ? null : cat.slug); setSelType('category'); }}
+            style={{ padding: '8px 20px', borderRadius: 20, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', cursor: 'pointer', border: 'none', background: sel === cat.slug ? accent : bg2, color: sel === cat.slug ? '#141010' : muted, fontWeight: sel === cat.slug ? 700 : 400 }}
           >
             {cat.label}
           </button>
         ))}
       </div>
 
-      {/* Book grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 12,
-      }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
         {books.map((book) => (
-          <BookCard
-            key={book.id}
-            book={book}
-            isFavorite={isFavorite(book.id)}
-            onToggleFavorite={() => toggle(book)}
-          />
+          <BookCard key={book.id} book={book} isFavorite={isFavorite(book.id)} onToggleFavorite={() => toggle(book)} />
         ))}
       </div>
 
       {books.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
           <p style={{ fontSize: 32, marginBottom: 12 }}>📭</p>
-          <p style={{ fontSize: 14, color: muted }}>
-            No books found for this category yet
-          </p>
+          <p style={{ fontSize: 14, color: muted }}>No books found for this category yet</p>
         </div>
       )}
     </div>
