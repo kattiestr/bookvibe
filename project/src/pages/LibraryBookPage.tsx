@@ -501,7 +501,7 @@ export default function LibraryBookPage() {
                 color: book.rating > 0 ? '#c9a84c' : muted,
               }}
             >
-              {book.rating > 0 ? `${book.rating}/10` : 'Rate'}
+              {book.rating === 11 ? '∞' : book.rating > 0 ? `${book.rating}/10` : 'Rate'}
             </span>
           </button>
         </div>
@@ -540,7 +540,34 @@ export default function LibraryBookPage() {
                 {n}
               </button>
             ))}
+      
+            {/* Кнопка бесконечности */}
+            <button
+              onClick={() => {
+                updateBook(book.bookId, { rating: 11 });
+                setShowRating(false);
+              }}
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 600,
+                background: book.rating === 11 ? '#c9a84c' : '#2a2520',
+                color: book.rating === 11 ? '#141010' : muted,
+              }}
+            >
+              ∞
+            </button>
           </div>
+      
+          {book.rating === 11 && (
+            <p style={{ fontSize: '11px', color: '#c9a84c', marginTop: '10px', fontStyle: 'italic' }}>
+              ∞ — beyond rating. A forever favourite. 🖤
+            </p>
+          )}
         </div>
       )}
 
