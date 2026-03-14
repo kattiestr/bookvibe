@@ -67,7 +67,7 @@ function MonthlyReadsWidget({
   const visible = showAll ? monthlyReads : monthlyReads.slice(0, 3);
 
   return (
-    <div style={{ marginTop: 24, padding: '16px', borderRadius: '16px', background: bg2, border: '1px solid #2a2520' }}>
+    <div style={{ marginTop: 24, marginBottom: 24, padding: '16px', borderRadius: '16px', background: bg2, border: '1px solid #2a2520' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: muted }}>
           📚 This Month's Reads
