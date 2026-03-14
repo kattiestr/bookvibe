@@ -25,6 +25,7 @@ import {
 import { useBooks } from '../hooks/BooksContext';
 import BookCover from '../components/BookCover';
 import CoverChanger from '../components/CoverChanger';
+import ReadingModal from '../components/ReadingModal';
 
 const accent = '#c4a07c';
 const muted = '#5c5450';
