@@ -64,6 +64,7 @@ export default function LibraryBookPage() {
 
   // Cover changer
   const [showCoverChanger, setShowCoverChanger] = useState(false);
+  const [showReadingModal, setShowReadingModal] = useState(false);
   const [coverKey, setCoverKey] = useState(0);
 
   // Timer
@@ -137,6 +138,7 @@ export default function LibraryBookPage() {
     setIsRunning(true);
     setIsPaused(false);
     pausedSecondsRef.current = 0;
+    setShowReadingModal(true);
   };
 
   const pauseTimer = () => {
@@ -160,6 +162,13 @@ export default function LibraryBookPage() {
     setEndPageInput('');
   };
 
+  const discardSession = () => {
+    setShowEndSession(false);
+    setIsPaused(false);
+    setSeconds(0);
+    setShowReadingModal(false);
+  };
+
   const saveSession = () => {
     const endPage = parseInt(endPageInput);
     if (
@@ -180,6 +189,7 @@ export default function LibraryBookPage() {
     addSession(book.bookId, session);
     setShowEndSession(false);
     setSeconds(0);
+    setShowReadingModal(false);
 
     if (endPage >= book.totalPages) {
       setTimeout(() => setShowCelebration(true), 300);
@@ -502,7 +512,11 @@ export default function LibraryBookPage() {
                 color: book.rating > 0 ? '#c9a84c' : muted,
               }}
             >
-              {book.rating === 11 ? '∞' : book.rating > 0 ? `${book.rating}/10` : 'Rate'}
+              {book.rating === 11
+                ? '∞'
+                : book.rating > 0
+                ? `${book.rating}/10`
+                : 'Rate'}
             </span>
           </button>
         </div>
@@ -541,8 +555,6 @@ export default function LibraryBookPage() {
                 {n}
               </button>
             ))}
-      
-            {/* Кнопка бесконечности */}
             <button
               onClick={() => {
                 updateBook(book.bookId, { rating: 11 });
@@ -563,9 +575,15 @@ export default function LibraryBookPage() {
               ∞
             </button>
           </div>
-      
           {book.rating === 11 && (
-            <p style={{ fontSize: '11px', color: '#c9a84c', marginTop: '10px', fontStyle: 'italic' }}>
+            <p
+              style={{
+                fontSize: '11px',
+                color: '#c9a84c',
+                marginTop: '10px',
+                fontStyle: 'italic',
+              }}
+            >
               ∞ — beyond rating. A forever favourite. 🖤
             </p>
           )}
@@ -709,10 +727,7 @@ export default function LibraryBookPage() {
             value={dnfReason}
             onChange={(e) => {
               setDnfReason(e.target.value);
-              localStorage.setItem(
-                `dnf-reason-${book.bookId}`,
-                e.target.value
-              );
+              localStorage.setItem(`dnf-reason-${book.bookId}`, e.target.value);
             }}
             placeholder="Boring plot, annoying characters, too slow..."
             style={{
@@ -869,7 +884,7 @@ export default function LibraryBookPage() {
         ))}
       </div>
 
-      {/* TIMER */}
+      {/* TIMER — остаётся на странице, но показывает только Start кнопку */}
       <div
         style={{
           padding: '24px',
@@ -908,8 +923,8 @@ export default function LibraryBookPage() {
         >
           {fmt(seconds)}
         </p>
-
-        {/* Состояние 1: Не активен */}
+  
+        {/* Только Start кнопка — остальное управление в модале */}
         {!isRunning && !isPaused && !showEndSession && (
           <button
             onClick={startTimer}
@@ -935,315 +950,112 @@ export default function LibraryBookPage() {
               : 'Start Reading'}
           </button>
         )}
-
-        {/* Состояние 2: Активен */}
-        {isRunning && !showEndSession && (
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <button
-              onClick={pauseTimer}
-              style={{
-                padding: '14px 28px',
-                borderRadius: '30px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 600,
-                background: '#2a2520',
-                color: '#e2ddd5',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <Pause size={16} /> Pause
-            </button>
-            <button
-              onClick={stopTimer}
-              style={{
-                padding: '14px 28px',
-                borderRadius: '30px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 600,
-                background: '#e74c3c',
-                color: '#fff',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              End Session
-            </button>
-          </div>
-        )}
-
-        {/* Состояние 3: Пауза */}
-        {isPaused && !showEndSession && (
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <button
-              onClick={resumeTimer}
-              style={{
-                padding: '14px 28px',
-                borderRadius: '30px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 600,
-                background: accent,
-                color: '#141010',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <Play size={16} fill="#141010" /> Resume
-            </button>
-            <button
-              onClick={stopTimer}
-              style={{
-                padding: '14px 28px',
-                borderRadius: '30px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 600,
-                background: '#e74c3c',
-                color: '#fff',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              End Session
-            </button>
-          </div>
-        )}
-
-        {/* Состояние 4: После End Session */}
-        {showEndSession && (
-          <div style={{ marginTop: '12px' }}>
-            <p
-              style={{
-                fontSize: '13px',
-                color: '#e2ddd5',
-                marginBottom: '4px',
-              }}
-            >
-              What page did you stop at?
-            </p>
-            <p
-              style={{ fontSize: '11px', color: muted, marginBottom: '12px' }}
-            >
-              Started at page {sessionStartPage} · Read for {fmt(seconds)}
-            </p>
-            <input
-              type="number"
-              value={endPageInput}
-              onChange={(e) => setEndPageInput(e.target.value)}
-              placeholder={`${sessionStartPage + 1}–${book.totalPages}`}
-              style={{
-                width: '140px',
-                padding: '10px 16px',
-                borderRadius: '10px',
-                border: '1px solid #3a3530',
-                background: '#141010',
-                color: '#e2ddd5',
-                fontSize: '18px',
-                textAlign: 'center',
-                outline: 'none',
-                marginBottom: '12px',
-              }}
-            />
-            <div
-              style={{
-                display: 'flex',
-                gap: '8px',
-                justifyContent: 'center',
-              }}
-            >
-              <button
-                onClick={saveSession}
-                style={{
-                  padding: '10px 24px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: accent,
-                  color: '#141010',
-                  fontWeight: 600,
-                  fontSize: '13px',
-                }}
-              >
-                Save Session
-              </button>
-              <button
-                onClick={() => {
-                  setShowEndSession(false);
-                  setIsPaused(false);
-                  setSeconds(0);
-                }}
-                style={{
-                  padding: '10px 24px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: '#2a2520',
-                  color: muted,
-                  fontSize: '13px',
-                }}
-              >
-                Discard
-              </button>
-            </div>
-          </div>
+  
+        {/* Если модал открыт — показываем статус */}
+        {(isRunning || isPaused) && (
+          <p style={{ fontSize: '12px', color: accent }}>
+            {isPaused ? '⏸ Session paused — see modal' : '📖 Reading in progress...'}
+          </p>
         )}
       </div>
-
-      {/* STATS */}
-      <div style={{ marginBottom: '16px' }}>
-        <h3
-          style={{
-            fontFamily: 'Playfair Display, serif',
-            fontSize: '16px',
-            color: '#e2ddd5',
-            marginBottom: '12px',
-          }}
-        >
-          Reading Stats
-        </h3>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            {
-              label: 'Total Time',
-              value:
-                stats && stats.totalMinutes > 0
-                  ? fmtTime(stats.totalMinutes)
-                  : '—',
-              emoji: '⏱️',
-            },
-            {
-              label: 'Pages/Hour',
-              value:
-                stats && stats.pagesPerHour > 0 ? stats.pagesPerHour : '—',
-              emoji: '📄',
-            },
-            {
-              label: 'Min/Page',
-              value:
-                stats && stats.minutesPerPage > 0
-                  ? `${stats.minutesPerPage}m`
-                  : '—',
-              emoji: '⚡',
-            },
-            {
-              label: 'Sessions',
-              value: stats?.sessionsCount || 0,
-              emoji: '📝',
-            },
-            {
-              label: 'Pages Left',
-              value: stats?.pagesLeft ?? book.totalPages - book.currentPage,
-              emoji: '📖',
-            },
-            {
-              label: 'Est. Left',
-              value:
-                stats && stats.hoursLeft > 0 ? `~${stats.hoursLeft}h` : '—',
-              emoji: '🕐',
-            },
-            {
-              label: 'Pages Read',
-              value: stats?.totalPagesRead || 0,
-              emoji: '✅',
-            },
-            {
-              label: 'Avg Session',
-              value:
-                stats && stats.avgSessionMinutes > 0
-                  ? fmtTime(stats.avgSessionMinutes)
-                  : '—',
-              emoji: '📊',
-            },
-            {
-              label: 'Pages/Min',
-              value:
-                stats && stats.pagesPerMinute > 0
-                  ? stats.pagesPerMinute
-                  : '—',
-              emoji: '🚀',
-            },
-          ].map((s) => (
-            <div
-              key={s.label}
-              style={{
-                padding: '10px',
-                borderRadius: '10px',
-                background: '#1a1614',
-                textAlign: 'center',
-                border: '1px solid #1e1a18',
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>{s.emoji}</span>
-              <p
+  
+        {/* STATS */}
+        <div style={{ marginBottom: '16px' }}>
+          <h3
+            style={{
+              fontFamily: 'Playfair Display, serif',
+              fontSize: '16px',
+              color: '#e2ddd5',
+              marginBottom: '12px',
+            }}
+          >
+            Reading Stats
+          </h3>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              {
+                label: 'Total Time',
+                value: stats && stats.totalMinutes > 0 ? fmtTime(stats.totalMinutes) : '—',
+                emoji: '⏱️',
+              },
+              {
+                label: 'Pages/Hour',
+                value: stats && stats.pagesPerHour > 0 ? stats.pagesPerHour : '—',
+                emoji: '📄',
+              },
+              {
+                label: 'Min/Page',
+                value: stats && stats.minutesPerPage > 0 ? `${stats.minutesPerPage}m` : '—',
+                emoji: '⚡',
+              },
+              {
+                label: 'Sessions',
+                value: stats?.sessionsCount || 0,
+                emoji: '📝',
+              },
+              {
+                label: 'Pages Left',
+                value: stats?.pagesLeft ?? book.totalPages - book.currentPage,
+                emoji: '📖',
+              },
+              {
+                label: 'Est. Left',
+                value: stats && stats.hoursLeft > 0 ? `~${stats.hoursLeft}h` : '—',
+                emoji: '🕐',
+              },
+              {
+                label: 'Pages Read',
+                value: stats?.totalPagesRead || 0,
+                emoji: '✅',
+              },
+              {
+                label: 'Avg Session',
+                value: stats && stats.avgSessionMinutes > 0 ? fmtTime(stats.avgSessionMinutes) : '—',
+                emoji: '📊',
+              },
+              {
+                label: 'Pages/Min',
+                value: stats && stats.pagesPerMinute > 0 ? stats.pagesPerMinute : '—',
+                emoji: '🚀',
+              },
+            ].map((s) => (
+              <div
+                key={s.label}
                 style={{
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  color: s.value === '—' ? '#3a3530' : '#e2ddd5',
-                  marginTop: '2px',
+                  padding: '10px',
+                  borderRadius: '10px',
+                  background: '#1a1614',
+                  textAlign: 'center',
+                  border: '1px solid #1e1a18',
                 }}
               >
-                {s.value}
-              </p>
-              <p
-                style={{
-                  fontSize: '8px',
-                  color: muted,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                }}
-              >
-                {s.label}
-              </p>
-            </div>
-          ))}
+                <span style={{ fontSize: '14px' }}>{s.emoji}</span>
+                <p
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: s.value === '—' ? '#3a3530' : '#e2ddd5',
+                    marginTop: '2px',
+                  }}
+                >
+                  {s.value}
+                </p>
+                <p
+                  style={{
+                    fontSize: '8px',
+                    color: muted,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  {s.label}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-
-      {/* Notes */}
-      <div style={{ marginBottom: '16px' }}>
-        <h3
-          style={{
-            fontFamily: 'Playfair Display, serif',
-            fontSize: '16px',
-            color: '#e2ddd5',
-            marginBottom: '8px',
-          }}
-        >
-          Notes
-        </h3>
-        <textarea
-          value={book.notes}
-          onChange={(e) => updateBook(book.bookId, { notes: e.target.value })}
-          placeholder="Your thoughts..."
-          rows={3}
-          style={{
-            width: '100%',
-            padding: '12px 16px',
-            borderRadius: '12px',
-            background: '#1a1614',
-            border: '1px solid #2a2520',
-            color: '#e2ddd5',
-            fontSize: '13px',
-            resize: 'vertical',
-            outline: 'none',
-            fontFamily: 'inherit',
-          }}
-        />
-      </div>
-
-      {/* Sessions */}
-      {book.sessions.length > 0 && (
+  
+        {/* Notes */}
         <div style={{ marginBottom: '16px' }}>
           <h3
             style={{
@@ -1253,120 +1065,175 @@ export default function LibraryBookPage() {
               marginBottom: '8px',
             }}
           >
-            Sessions ({book.sessions.length})
+            Notes
           </h3>
-          {book.sessions
-            .slice()
-            .reverse()
-            .map((session) => {
-              const speed =
-                session.duration > 0
-                  ? (session.pagesRead / (session.duration / 60)).toFixed(1)
-                  : '0';
-              return (
-                <div
-                  key={session.id}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    background: '#1a1614',
-                    marginBottom: '6px',
-                    border: '1px solid #1e1a18',
-                  }}
-                >
-                  <div>
-                    <p style={{ fontSize: '13px', color: '#e2ddd5' }}>
-                      p.{session.startPage} → p.{session.endPage}
-                    </p>
-                    <p style={{ fontSize: '10px', color: muted }}>
-                      {new Date(session.startTime).toLocaleDateString()} ·{' '}
-                      {new Date(session.startTime).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <p
-                      style={{
-                        fontSize: '13px',
-                        color: accent,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {session.pagesRead} pages
-                    </p>
-                    <p style={{ fontSize: '10px', color: muted }}>
-                      {fmt(session.duration)} · {speed} p/min
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+          <textarea
+            value={book.notes}
+            onChange={(e) => updateBook(book.bookId, { notes: e.target.value })}
+            placeholder="Your thoughts..."
+            rows={3}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              background: '#1a1614',
+              border: '1px solid #2a2520',
+              color: '#e2ddd5',
+              fontSize: '13px',
+              resize: 'vertical',
+              outline: 'none',
+              fontFamily: 'inherit',
+            }}
+          />
         </div>
-      )}
-
-      {/* Delete */}
-      <button
-        onClick={() => {
-          removeFromLibrary(book.bookId);
-          navigate('/library');
-        }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          margin: '20px auto',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: '#6b4040',
-          fontSize: '12px',
-        }}
-      >
-        <Trash2 size={12} /> Remove from Library
-      </button>
-
-      {toast && (
-        <SassyToast
-          message={toast.message}
-          emoji={toast.emoji}
-          onClose={() => setToast(null)}
-        />
-      )}
-      {showCelebration && (
-        <Celebration
-          bookTitle={book.title}
-          onClose={() => setShowCelebration(false)}
-        />
-      )}
-      {showDNFModal && (
-        <DNFModal
-          bookTitle={book.title}
-          bookId={book.bookId}
-          onConfirm={(reason) => {
-            updateBook(book.bookId, { status: 'dnf' });
-            if (reason) setDnfReason(reason);
-            setShowDNFModal(false);
+  
+        {/* Sessions */}
+        {book.sessions.length > 0 && (
+          <div style={{ marginBottom: '16px' }}>
+            <h3
+              style={{
+                fontFamily: 'Playfair Display, serif',
+                fontSize: '16px',
+                color: '#e2ddd5',
+                marginBottom: '8px',
+              }}
+            >
+              Sessions ({book.sessions.length})
+            </h3>
+            {book.sessions
+              .slice()
+              .reverse()
+              .map((session) => {
+                const speed =
+                  session.duration > 0
+                    ? (session.pagesRead / (session.duration / 60)).toFixed(1)
+                    : '0';
+                return (
+                  <div
+                    key={session.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: '#1a1614',
+                      marginBottom: '6px',
+                      border: '1px solid #1e1a18',
+                    }}
+                  >
+                    <div>
+                      <p style={{ fontSize: '13px', color: '#e2ddd5' }}>
+                        p.{session.startPage} → p.{session.endPage}
+                      </p>
+                      <p style={{ fontSize: '10px', color: muted }}>
+                        {new Date(session.startTime).toLocaleDateString()} ·{' '}
+                        {new Date(session.startTime).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p
+                        style={{
+                          fontSize: '13px',
+                          color: accent,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {session.pagesRead} pages
+                      </p>
+                      <p style={{ fontSize: '10px', color: muted }}>
+                        {fmt(session.duration)} · {speed} p/min
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+  
+        {/* Delete */}
+        <button
+          onClick={() => {
+            removeFromLibrary(book.bookId);
+            navigate('/library');
           }}
-          onCancel={() => setShowDNFModal(false)}
-        />
-      )}
-
-      {showCoverChanger && (
-        <CoverChanger
-          bookId={book.bookId}
-          bookTitle={book.title}
-          bookAuthor={book.author}
-          onChanged={() => {
-            setShowCoverChanger(false);
-            setCoverKey((k) => k + 1);
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            margin: '20px auto',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#6b4040',
+            fontSize: '12px',
           }}
-          onClose={() => setShowCoverChanger(false)}
-        />
-      )}
-    </div>
-  );
-}
+        >
+          <Trash2 size={12} /> Remove from Library
+        </button>
+  
+        {/* Toasts & Modals */}
+        {toast && (
+          <SassyToast
+            message={toast.message}
+            emoji={toast.emoji}
+            onClose={() => setToast(null)}
+          />
+        )}
+        {showCelebration && (
+          <Celebration
+            bookTitle={book.title}
+            onClose={() => setShowCelebration(false)}
+          />
+        )}
+        {showDNFModal && (
+          <DNFModal
+            bookTitle={book.title}
+            bookId={book.bookId}
+            onConfirm={(reason) => {
+              updateBook(book.bookId, { status: 'dnf' });
+              if (reason) setDnfReason(reason);
+              setShowDNFModal(false);
+            }}
+            onCancel={() => setShowDNFModal(false)}
+          />
+        )}
+        {showCoverChanger && (
+          <CoverChanger
+            bookId={book.bookId}
+            bookTitle={book.title}
+            bookAuthor={book.author}
+            onChanged={() => {
+              setShowCoverChanger(false);
+              setCoverKey((k) => k + 1);
+            }}
+            onClose={() => setShowCoverChanger(false)}
+          />
+        )}
+  
+        {/* ✅ READING MODAL — полноэкранный оверлей */}
+        {showReadingModal && (
+          <ReadingModal
+            isRunning={isRunning}
+            isPaused={isPaused}
+            seconds={seconds}
+            showEndSession={showEndSession}
+            sessionStartPage={sessionStartPage}
+            endPageInput={endPageInput}
+            totalPages={book.totalPages}
+            coverSrc={dbBook?.cover || book.cover}
+            bookTitle={book.title}
+            onPause={pauseTimer}
+            onResume={resumeTimer}
+            onStop={stopTimer}
+            onSave={saveSession}
+            onDiscard={discardSession}
+            onEndPageChange={setEndPageInput}
+          />
+        )}
+      </div>
+    );
+  }
+            
