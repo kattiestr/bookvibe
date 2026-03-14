@@ -71,6 +71,7 @@ export default function LibraryPage() {
   const { library, getStats, updateBook } = useLibrary();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('library');
+  const [expandedSeries, setExpandedSeries] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('library-scroll');
@@ -307,259 +308,365 @@ export default function LibraryPage() {
       libraryBooks.some((lb) => lb.bookId === b.id)
     ).length;
     const isComplete = ownedInSeries === totalInSeries && totalInSeries > 0;
+    const isExpanded = expandedSeries === seriesName;
+
+    const topBook = books[0];
+    const secondBook = books[1];
+    const thirdBook = books[2];
 
     return (
-      <div
-        key={seriesName}
-        style={{
-          marginBottom: '20px',
-          background: '#1e1a18',
-          borderRadius: '16px',
-          padding: '16px',
-          border: isComplete
-            ? '1px solid rgba(107,158,122,0.3)'
-            : '1px solid #2a2520',
-        }}
-      >
+      <div key={seriesName} style={{ marginBottom: '20px' }}>
+
+        {/* СВЁРНУТЫЙ ВИД — стопка обложек */}
         <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: '12px',
-          }}
+          onClick={() =>
+            setExpandedSeries(isExpanded ? null : seriesName)
+          }
+          style={{ cursor: 'pointer', display: 'flex', gap: '14px', alignItems: 'flex-start' }}
         >
-          <div>
-            <h3
-              style={{
-                fontFamily: 'Playfair Display, serif',
-                fontSize: '16px',
-                fontWeight: 700,
-                color: '#e2ddd5',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              📖 {seriesName}
+          {/* Стопка обложек */}
+          <div style={{ position: 'relative', width: '95px', height: '135px', flexShrink: 0 }}>
+
+            {/* Третья книга (самая дальняя) */}
+            {thirdBook && (
+              <div style={{
+                position: 'absolute',
+                left: '12px',
+                top: '8px',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                opacity: 0.45,
+                transform: 'rotate(4deg)',
+                width: '78px',
+                height: '117px',
+              }}>
+                <BookCover
+                  src={getActualCover(thirdBook.bookId, thirdBook.cover)}
+                  title={thirdBook.title}
+                  bookId={thirdBook.bookId}
+                  width={78}
+                  height={117}
+                  borderRadius="8px"
+                />
+              </div>
+            )}
+
+            {/* Вторая книга */}
+            {secondBook && (
+              <div style={{
+                position: 'absolute',
+                left: '6px',
+                top: '4px',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                opacity: 0.7,
+                transform: 'rotate(2deg)',
+                width: '81px',
+                height: '121px',
+              }}>
+                <BookCover
+                  src={getActualCover(secondBook.bookId, secondBook.cover)}
+                  title={secondBook.title}
+                  bookId={secondBook.bookId}
+                  width={81}
+                  height={121}
+                  borderRadius="8px"
+                />
+              </div>
+            )}
+
+            {/* Первая книга (верхняя) */}
+            <div style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '84px',
+              height: '126px',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+            }}>
+              <BookCover
+                src={getActualCover(topBook.bookId, topBook.cover)}
+                title={topBook.title}
+                bookId={topBook.bookId}
+                width={84}
+                height={126}
+                borderRadius="8px"
+              />
               {isComplete && (
-                <span
-                  style={{
-                    fontSize: '10px',
-                    background: 'rgba(107,158,122,0.2)',
-                    color: '#6b9e7a',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    fontWeight: 600,
-                  }}
-                >
-                  ✅ Complete
-                </span>
-              )}
-            </h3>
-            <p
-              style={{
-                fontSize: '10px',
-                color: muted,
-                marginTop: '2px',
-                fontStyle: 'italic',
-              }}
-            >
-              {getCollectionJoke(ownedInSeries, totalInSeries)}
-            </p>
-          </div>
-          <span
-            style={{
-              fontSize: '11px',
-              color: isComplete ? '#6b9e7a' : accent,
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {ownedInSeries}/{totalInSeries}
-          </span>
-        </div>
-        <div
-          style={{
-            height: '6px',
-            borderRadius: '3px',
-            background: '#2a2520',
-            marginBottom: '14px',
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            style={{
-              width: `${(ownedInSeries / totalInSeries) * 100}%`,
-              height: '100%',
-              borderRadius: '3px',
-              background: isComplete ? '#6b9e7a' : accent,
-              transition: 'width 0.5s ease',
-            }}
-          />
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            gap: '4px',
-            marginBottom: '14px',
-            overflowX: 'auto',
-          }}
-          className="scrollbar-hide"
-        >
-          {Array.from({ length: totalInSeries }, (_, i) => {
-            const num = i + 1;
-            const seriesBook = allSeriesBooks.find(
-              (b) => b.seriesNumber === num
-            );
-            const owned =
-              seriesBook &&
-              libraryBooks.some((lb) => lb.bookId === seriesBook.id);
-            const inFiltered =
-              seriesBook && books.some((b) => b.bookId === seriesBook.id);
-            return (
-              <div
-                key={num}
-                onClick={() => {
-                  if (seriesBook && owned)
-                    saveScrollAndNavigate(`/library/${seriesBook.id}`);
-                  else if (seriesBook)
-                    saveScrollAndNavigate(`/book/${seriesBook.id}`);
-                }}
-                style={{
-                  width: '28px',
-                  height: '40px',
-                  borderRadius: '4px',
-                  background: owned
-                    ? inFiltered
-                      ? accent
-                      : 'rgba(107,158,122,0.3)'
-                    : '#141010',
-                  border: owned
-                    ? '1px solid transparent'
-                    : '1px dashed #2a2520',
+                <div style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: 6,
+                  background: '#6b9e7a',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '8px',
-                  color: owned ? '#141010' : '#2a2520',
-                  fontWeight: 700,
-                  cursor: seriesBook ? 'pointer' : 'default',
-                  flexShrink: 0,
-                }}
-              >
-                {num}
+                  fontSize: '11px',
+                }}>✓</div>
+              )}
+            </div>
+
+            {/* Счётчик книг */}
+            {books.length > 1 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 2,
+                right: 0,
+                background: isComplete ? '#6b9e7a' : accent,
+                borderRadius: '10px',
+                padding: '2px 7px',
+                fontSize: '10px',
+                fontWeight: 700,
+                color: '#141010',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+              }}>
+                {books.length}
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          {/* Инфо о серии */}
+          <div style={{ flex: 1, minWidth: 0, paddingTop: '4px' }}>
+            <h3 style={{
+              fontFamily: 'Playfair Display, serif',
+              fontSize: '15px',
+              fontWeight: 700,
+              color: '#e2ddd5',
+              marginBottom: '3px',
+              lineHeight: 1.2,
+            }}>
+              {seriesName}
+            </h3>
+            <p style={{
+              fontSize: '11px',
+              color: muted,
+              marginBottom: '10px',
+            }}>
+              {topBook.author}
+            </p>
+
+            {/* Прогресс бар */}
+            <div style={{
+              height: '4px',
+              borderRadius: '2px',
+              background: '#2a2520',
+              overflow: 'hidden',
+              marginBottom: '6px',
+            }}>
+              <div style={{
+                width: `${(ownedInSeries / totalInSeries) * 100}%`,
+                height: '100%',
+                borderRadius: '2px',
+                background: isComplete ? '#6b9e7a' : accent,
+                transition: 'width 0.5s ease',
+              }} />
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '8px',
+            }}>
+              <p style={{
+                fontSize: '10px',
+                color: isComplete ? '#6b9e7a' : muted,
+                fontStyle: 'italic',
+              }}>
+                {getCollectionJoke(ownedInSeries, totalInSeries)}
+              </p>
+              <span style={{
+                fontSize: '10px',
+                color: isComplete ? '#6b9e7a' : accent,
+                fontWeight: 600,
+                flexShrink: 0,
+                marginLeft: '8px',
+              }}>
+                {ownedInSeries}/{totalInSeries}
+              </span>
+            </div>
+
+            <p style={{
+              fontSize: '10px',
+              color: accent,
+              opacity: 0.8,
+            }}>
+              {isExpanded ? '▲ collapse' : '▼ see books'}
+            </p>
+          </div>
         </div>
-        <div
-          style={{
-            display: 'flex',
-            gap: '10px',
-            overflowX: 'auto',
-            paddingBottom: '4px',
-          }}
-          className="scrollbar-hide"
-        >
-          {books.map((book) => {
-            const stats = getStats(book.bookId);
-            const progress = stats?.progress || 0;
-            return (
-              <div
-                key={book.bookId}
-                onClick={() => saveScrollAndNavigate(`/library/${book.bookId}`)}
-                style={{
-                  flexShrink: 0,
-                  width: '90px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ position: 'relative' }}>
-                  <BookCover
-                    src={getActualCover(book.bookId, book.cover)}
-                    title={book.title}
-                    bookId={book.bookId}
-                    width={90}
-                    height={130}
-                    borderRadius="8px"
-                  />
-                  {progress > 0 && progress < 100 && (
-                    <div style={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: '3px',
-                      borderRadius: '0 0 8px 8px',
-                      background: '#2a2520',
-                      overflow: 'hidden',
-                    }}>
-                      <div style={{
-                        width: `${progress}%`,
-                        height: '100%',
-                        background: accent,
-                      }} />
-                    </div>
-                  )}
-                  {progress === 100 && (
-                    <div style={{
-                      position: 'absolute',
-                      top: 6,
-                      right: 6,
-                      background: '#6b9e7a',
-                      borderRadius: '50%',
-                      width: '18px',
-                      height: '18px',
+
+        {/* РАСКРЫТЫЙ ВИД */}
+        {isExpanded && (
+          <div style={{
+            marginTop: '14px',
+            padding: '16px',
+            borderRadius: '16px',
+            background: '#1e1a18',
+            border: isComplete
+              ? '1px solid rgba(107,158,122,0.3)'
+              : '1px solid #2a2520',
+          }}>
+
+            {/* Нумерация книг серии */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '4px',
+                marginBottom: '14px',
+                overflowX: 'auto',
+              }}
+              className="scrollbar-hide"
+            >
+              {Array.from({ length: totalInSeries }, (_, i) => {
+                const num = i + 1;
+                const seriesBook = allSeriesBooks.find(
+                  (b) => b.seriesNumber === num
+                );
+                const owned =
+                  seriesBook &&
+                  libraryBooks.some((lb) => lb.bookId === seriesBook.id);
+                const inFiltered =
+                  seriesBook && books.some((b) => b.bookId === seriesBook.id);
+                return (
+                  <div
+                    key={num}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (seriesBook && owned)
+                        saveScrollAndNavigate(`/library/${seriesBook.id}`);
+                      else if (seriesBook)
+                        saveScrollAndNavigate(`/book/${seriesBook.id}`);
+                    }}
+                    style={{
+                      width: '28px',
+                      height: '40px',
+                      borderRadius: '4px',
+                      background: owned
+                        ? inFiltered
+                          ? accent
+                          : 'rgba(107,158,122,0.3)'
+                        : '#141010',
+                      border: owned
+                        ? '1px solid transparent'
+                        : '1px dashed #2a2520',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '10px',
-                    }}>
-                      ✓
+                      fontSize: '8px',
+                      color: owned ? '#141010' : '#2a2520',
+                      fontWeight: 700,
+                      cursor: seriesBook ? 'pointer' : 'default',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {num}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Обложки книг */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '10px',
+                overflowX: 'auto',
+                paddingBottom: '4px',
+              }}
+              className="scrollbar-hide"
+            >
+              {books.map((book) => {
+                const stats = getStats(book.bookId);
+                const progress = stats?.progress || 0;
+                return (
+                  <div
+                    key={book.bookId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      saveScrollAndNavigate(`/library/${book.bookId}`);
+                    }}
+                    style={{ flexShrink: 0, width: '85px', cursor: 'pointer' }}
+                  >
+                    <div style={{ position: 'relative' }}>
+                      <BookCover
+                        src={getActualCover(book.bookId, book.cover)}
+                        title={book.title}
+                        bookId={book.bookId}
+                        width={85}
+                        height={127}
+                        borderRadius="8px"
+                      />
+                      {progress > 0 && progress < 100 && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: '3px',
+                          borderRadius: '0 0 8px 8px',
+                          background: '#2a2520',
+                          overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            width: `${progress}%`,
+                            height: '100%',
+                            background: accent,
+                          }} />
+                        </div>
+                      )}
+                      {progress === 100 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: 6,
+                          right: 6,
+                          background: '#6b9e7a',
+                          borderRadius: '50%',
+                          width: '18px',
+                          height: '18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                        }}>✓</div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <p style={{
-                  fontSize: '10px',
-                  color: '#e2ddd5',
-                  marginTop: '6px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  textAlign: 'center',
-                }}>
-                  {book.seriesNumber ? `#${book.seriesNumber}` : book.title}
-                </p>
-                <p style={{
-                  fontSize: '9px',
-                  color: muted,
-                  textAlign: 'center',
-                }}>
-                  {progress}%
-                </p>
-              </div>
-            );
-          })}
-        </div>
+                    <p style={{
+                      fontSize: '10px',
+                      color: '#e2ddd5',
+                      marginTop: '6px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      textAlign: 'center',
+                    }}>
+                      {book.seriesNumber ? `#${book.seriesNumber}` : book.title}
+                    </p>
+                    <p style={{ fontSize: '9px', color: muted, textAlign: 'center' }}>
+                      {progress}%
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
 
-  // ====== TBR VIEW COMPONENT ======
+  // ====== TBR VIEW ======
   const renderTBRView = () => {
     if (tbrBookIds.length === 0) {
       return (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <p style={{ fontSize: '36px', marginBottom: '12px' }}>📋</p>
-          <p
-            style={{
-              color: '#e2ddd5',
-              fontSize: '14px',
-              fontWeight: 600,
-              marginBottom: '4px',
-            }}
-          >
+          <p style={{ color: '#e2ddd5', fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
             No TBR list yet
           </p>
           <p style={{ color: muted, fontSize: '12px', marginBottom: '16px' }}>
@@ -603,26 +710,16 @@ export default function LibraryPage() {
 
     return (
       <div>
-        <div
-          style={{
-            padding: '14px 16px',
-            borderRadius: '14px',
-            background: 'rgba(196,160,124,0.06)',
-            border: `1px solid ${accent}33`,
-            marginBottom: '14px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
+        <div style={{
+          padding: '14px 16px',
+          borderRadius: '14px',
+          background: 'rgba(196,160,124,0.06)',
+          border: `1px solid ${accent}33`,
+          marginBottom: '14px',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p
-                style={{ fontSize: '14px', fontWeight: 700, color: '#e2ddd5' }}
-              >
+              <p style={{ fontSize: '14px', fontWeight: 700, color: '#e2ddd5' }}>
                 📋 {tbrInfo?.period || 'Weekly'} TBR
               </p>
               <p style={{ fontSize: '10px', color: muted, marginTop: '2px' }}>
@@ -645,52 +742,38 @@ export default function LibraryPage() {
             </button>
           </div>
           <div style={{ marginTop: '12px' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: '4px',
-              }}
-            >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
               <span style={{ fontSize: '10px', color: muted }}>Progress</span>
-              <span
-                style={{
-                  fontSize: '10px',
-                  color: allDone ? '#6b9e7a' : accent,
-                  fontWeight: 600,
-                }}
-              >
+              <span style={{
+                fontSize: '10px',
+                color: allDone ? '#6b9e7a' : accent,
+                fontWeight: 600,
+              }}>
                 {doneCount}/{tbrBookIds.length}
               </span>
             </div>
-            <div
-              style={{
-                height: '6px',
+            <div style={{
+              height: '6px',
+              borderRadius: '3px',
+              background: '#2a2520',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${(doneCount / tbrBookIds.length) * 100}%`,
+                height: '100%',
                 borderRadius: '3px',
-                background: '#2a2520',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  width: `${(doneCount / tbrBookIds.length) * 100}%`,
-                  height: '100%',
-                  borderRadius: '3px',
-                  background: allDone ? '#6b9e7a' : accent,
-                  transition: 'width 0.5s',
-                }}
-              />
+                background: allDone ? '#6b9e7a' : accent,
+                transition: 'width 0.5s',
+              }} />
             </div>
             {allDone && (
-              <div
-                style={{
-                  textAlign: 'center',
-                  marginTop: '12px',
-                  padding: '10px',
-                  borderRadius: '10px',
-                  background: 'rgba(107,158,122,0.1)',
-                }}
-              >
+              <div style={{
+                textAlign: 'center',
+                marginTop: '12px',
+                padding: '10px',
+                borderRadius: '10px',
+                background: 'rgba(107,158,122,0.1)',
+              }}>
                 <p style={{ fontSize: '24px', marginBottom: '4px' }}>🎉</p>
                 <p style={{ fontSize: '13px', fontWeight: 700, color: '#6b9e7a' }}>
                   TBR Complete!
@@ -723,8 +806,7 @@ export default function LibraryPage() {
           {tbrBookIds.map((bookId, index) => {
             const libBook = library.find((b) => b.bookId === bookId);
             if (!libBook) return null;
-            const isRead =
-              libBook.status === 'finished' || libBook.status === 'read-before';
+            const isRead = libBook.status === 'finished' || libBook.status === 'read-before';
             const isReading = libBook.status === 'reading';
             const stats = getStats(bookId);
             const progress = stats?.progress || 0;
@@ -747,21 +829,19 @@ export default function LibraryPage() {
                   opacity: isRead ? 0.85 : 1,
                 }}
               >
-                <div
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    background: isRead ? '#6b9e7a' : isReading ? accent : '#2a2520',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: isRead ? '14px' : '13px',
-                    fontWeight: 700,
-                    color: isRead || isReading ? '#141010' : muted,
-                  }}
-                >
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  background: isRead ? '#6b9e7a' : isReading ? accent : '#2a2520',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: isRead ? '14px' : '13px',
+                  fontWeight: 700,
+                  color: isRead || isReading ? '#141010' : muted,
+                }}>
                   {isRead ? '✓' : index + 1}
                 </div>
                 <div
@@ -782,15 +862,13 @@ export default function LibraryPage() {
                   onClick={() => saveScrollAndNavigate(`/library/${bookId}`)}
                   style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
                 >
-                  <p
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: isRead ? '#8a8a8a' : '#e2ddd5',
-                      textDecoration: isRead ? 'line-through' : 'none',
-                      textDecorationColor: '#6b9e7a',
-                    }}
-                  >
+                  <p style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: isRead ? '#8a8a8a' : '#e2ddd5',
+                    textDecoration: isRead ? 'line-through' : 'none',
+                    textDecorationColor: '#6b9e7a',
+                  }}>
                     {libBook.title}
                   </p>
                   <p style={{ fontSize: '10px', color: muted, marginTop: '1px' }}>
@@ -803,23 +881,19 @@ export default function LibraryPage() {
                   )}
                   {isReading && (
                     <div style={{ marginTop: '6px' }}>
-                      <div
-                        style={{
-                          height: '3px',
+                      <div style={{
+                        height: '3px',
+                        borderRadius: '2px',
+                        background: '#2a2520',
+                        overflow: 'hidden',
+                        marginBottom: '3px',
+                      }}>
+                        <div style={{
+                          width: `${progress}%`,
+                          height: '100%',
                           borderRadius: '2px',
-                          background: '#2a2520',
-                          overflow: 'hidden',
-                          marginBottom: '3px',
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${progress}%`,
-                            height: '100%',
-                            borderRadius: '2px',
-                            background: accent,
-                          }}
-                        />
+                          background: accent,
+                        }} />
                       </div>
                       <p style={{ fontSize: '9px', color: accent }}>
                         📖 Reading · {progress}%
@@ -862,16 +936,14 @@ export default function LibraryPage() {
         {standalone.length > 0 && (
           <div>
             {Object.keys(seriesMap).length > 0 && (
-              <h3
-                style={{
-                  fontSize: '11px',
-                  letterSpacing: '0.15em',
-                  textTransform: 'uppercase',
-                  color: accent,
-                  marginBottom: '10px',
-                  marginTop: '8px',
-                }}
-              >
+              <h3 style={{
+                fontSize: '11px',
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                color: accent,
+                marginBottom: '10px',
+                marginTop: '8px',
+              }}>
                 📕 Standalone Books
               </h3>
             )}
@@ -886,27 +958,24 @@ export default function LibraryPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-28">
-      <h1
-        style={{
-          fontFamily: 'Playfair Display, serif',
-          fontSize: '32px',
-          fontWeight: 700,
-          color: '#e2ddd5',
-        }}
-      >
+      <h1 style={{
+        fontFamily: 'Playfair Display, serif',
+        fontSize: '32px',
+        fontWeight: 700,
+        color: '#e2ddd5',
+      }}>
         My Library
       </h1>
-      <p
-        style={{
-          color: muted,
-          fontSize: '13px',
-          marginTop: '4px',
-          marginBottom: '20px',
-        }}
-      >
+      <p style={{
+        color: muted,
+        fontSize: '13px',
+        marginTop: '4px',
+        marginBottom: '20px',
+      }}>
         track your reading journey
       </p>
 
+      {/* Статистика */}
       <div className="grid grid-cols-4 gap-2 mb-6" style={{ textAlign: 'center' }}>
         {[
           { label: 'Books', value: libraryBooks.length, emoji: '📚' },
@@ -943,16 +1012,15 @@ export default function LibraryPage() {
         ))}
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: '4px',
-          marginBottom: '16px',
-          background: '#1a1614',
-          borderRadius: '14px',
-          padding: '4px',
-        }}
-      >
+      {/* Вкладки My Books / Wishlist */}
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        marginBottom: '16px',
+        background: '#1a1614',
+        borderRadius: '14px',
+        padding: '4px',
+      }}>
         <button
           onClick={() => setViewMode('library')}
           style={{
@@ -985,16 +1053,14 @@ export default function LibraryPage() {
         >
           🛒 Wishlist
           {wishlistBooks.length > 0 && (
-            <span
-              style={{
-                marginLeft: '6px',
-                background: viewMode === 'wishlist' ? '#141010' : accent,
-                color: viewMode === 'wishlist' ? accent : '#141010',
-                borderRadius: '10px',
-                padding: '2px 6px',
-                fontSize: '10px',
-              }}
-            >
+            <span style={{
+              marginLeft: '6px',
+              background: viewMode === 'wishlist' ? '#141010' : accent,
+              color: viewMode === 'wishlist' ? accent : '#141010',
+              borderRadius: '10px',
+              padding: '2px 6px',
+              fontSize: '10px',
+            }}>
               {wishlistBooks.length}
             </span>
           )}
@@ -1027,16 +1093,14 @@ export default function LibraryPage() {
                 >
                   {tab.emoji} {tab.label}
                   {tab.key === 'tbr-list' && count > 0 && (
-                    <span
-                      style={{
-                        background: filter === tab.key ? '#141010' : accent,
-                        color: filter === tab.key ? accent : '#141010',
-                        borderRadius: '8px',
-                        padding: '1px 5px',
-                        fontSize: '9px',
-                        fontWeight: 700,
-                      }}
-                    >
+                    <span style={{
+                      background: filter === tab.key ? '#141010' : accent,
+                      color: filter === tab.key ? accent : '#141010',
+                      borderRadius: '8px',
+                      padding: '1px 5px',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                    }}>
                       {count}
                     </span>
                   )}
@@ -1062,16 +1126,13 @@ export default function LibraryPage() {
             </div>
           ) : (
             <>
-              <p
-                style={{
-                  fontSize: '12px',
-                  color: muted,
-                  marginBottom: '12px',
-                  fontStyle: 'italic',
-                }}
-              >
-                {wishlistBooks.length} book
-                {wishlistBooks.length !== 1 ? 's' : ''} waiting to be yours ✨
+              <p style={{
+                fontSize: '12px',
+                color: muted,
+                marginBottom: '12px',
+                fontStyle: 'italic',
+              }}>
+                {wishlistBooks.length} book{wishlistBooks.length !== 1 ? 's' : ''} waiting to be yours ✨
               </p>
               <div className="flex flex-col gap-3">
                 {wishlistBooks.map((book) => (
@@ -1098,17 +1159,15 @@ export default function LibraryPage() {
                       style={{ flexShrink: 0 }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3
-                        style={{
-                          fontFamily: 'Playfair Display, serif',
-                          fontSize: '15px',
-                          fontWeight: 600,
-                          color: '#e2ddd5',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
+                      <h3 style={{
+                        fontFamily: 'Playfair Display, serif',
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        color: '#e2ddd5',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
                         {book.title}
                       </h3>
                       <p style={{ fontSize: '11px', color: muted, marginTop: '2px' }}>
