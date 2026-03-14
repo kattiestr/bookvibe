@@ -74,7 +74,7 @@ export default function ReadingModal({
             backgroundImage: `url(${coverSrc})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'blur(24px) brightness(0.3)',
+            filter: 'blur(8px) brightness(0.5)',
             transform: 'scale(1.1)',
           }}
         />
